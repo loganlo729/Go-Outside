@@ -19,7 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@gooutside/supabase": ["../../packages/supabase/index.ts"]
     }
   },
   "include": [
