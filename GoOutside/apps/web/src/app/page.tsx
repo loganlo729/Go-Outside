@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { getSupabaseClient } from "../../lib/supabase";
 
 // Generic types for database rows
 type EventRow = Record<string, unknown>;
@@ -20,6 +20,7 @@ export default function Home() {
   async function loadEvents() {
     setStatus("loading");
 
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase.from("Event").select("*");
 
     if (error) {
@@ -35,6 +36,7 @@ export default function Home() {
   async function loadUsers() {
     setUserStatus("loading");
 
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase.from("User").select("*");
 
     if (error) {

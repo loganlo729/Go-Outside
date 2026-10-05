@@ -1,5 +1,17 @@
 packages:
   - "apps/*"
   - "packages/*"
+
 allowBuilds:
+  '@scarf/scarf': false
+  '@tree-sitter-grammars/tree-sitter-yaml': true
+  core-js-pure: false
+  tree-sitter: true
+  tree-sitter-json: true
   unrs-resolver: true
+
+overrides:
+  react: "^18.3.1"
+  react-dom: "^18.3.1"
+  "@types/react": "^18.3.12"
+  "@types/react-dom": "^18.3.1"

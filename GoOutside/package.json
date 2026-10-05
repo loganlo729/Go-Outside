@@ -2,10 +2,18 @@
   "name": "gooutside",
   "private": true,
   "scripts": {
-    "dev:web": "pnpm --filter web dev",
+    "dev:web": "pnpm --filter gooutside-web dev",
+    "build:web": "pnpm --filter gooutside-web build",
+    "lint:web": "pnpm --filter gooutside-web lint",
     "dev:mobile": "pnpm --filter mobile start",
-    "build:web": "pnpm --filter web build",
-    "lint:web": "pnpm --filter web lint",
     "lint:mobile": "pnpm --filter mobile lint"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "^18.3.1",
+      "react-dom": "^18.3.1",
+      "@types/react": "^18.3.12",
+      "@types/react-dom": "^18.3.1"
+    }
   }
 }

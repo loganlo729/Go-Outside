@@ -1,0 +1,340 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "GoOutside API Documentation",
+    "version": "1.0.0",
+    "description": "API Schema specifications for GoOutside Web & Mobile services"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development Server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Events",
+      "description": "Event operations"
+    },
+    {
+      "name": "RSVP",
+      "description": "Event RSVP operations"
+    }
+  ],
+  "paths": {
+    "/api/events": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get all events",
+        "description": "Returns events. Optional parameters can filter the results.",
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "description": "Return events starting on or after this date",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "description": "Return events ending on or before this date",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "maxCost",
+            "in": "query",
+            "description": "Maximum event cost",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "hostID",
+            "in": "query",
+            "description": "User ID of the event host",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "categoryID",
+            "in": "query",
+            "description": "Category ID",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Events retrieved successfully"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create an event",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event created successfully"
+          },
+          "400": {
+            "description": "Invalid event data"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/events/{id}": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get a single event",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Event ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event retrieved successfully"
+          },
+          "404": {
+            "description": "Event not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update an event",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Event ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event updated successfully"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Delete an event",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Event ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event deleted successfully"
+          },
+          "400": {
+            "description": "Event could not be deleted"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/users/{userID}/events": {
+      "get": {
+        "tags": ["RSVP"],
+        "summary": "Get user's RSVP'd events",
+        "parameters": [
+          {
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "description": "User ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RSVP'd events retrieved successfully"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateEvent": {
+        "type": "object",
+        "required": [
+          "userID",
+          "eventTitle",
+          "eventDescription",
+          "eventStartTime",
+          "eventEndTime",
+          "eventLocation"
+        ],
+        "properties": {
+          "eventID": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userID": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categoryID": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "eventTitle": {
+            "type": "string",
+            "example": "Hiking Trip"
+          },
+          "eventDescription": {
+            "type": "string",
+            "example": "Group hiking trip at Presque Isle."
+          },
+          "eventStartTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "eventEndTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "eventLocation": {
+            "type": "string",
+            "example": "Presque Isle State Park"
+          },
+          "createdDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "eventCost": {
+            "type": "number",
+            "nullable": true,
+            "example": 10
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpdateEvent": {
+        "type": "object",
+        "properties": {
+          "categoryID": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "eventTitle": {
+            "type": "string"
+          },
+          "eventDescription": {
+            "type": "string"
+          },
+          "eventStartTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "eventEndTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "eventLocation": {
+            "type": "string"
+          },
+          "eventCost": {
+            "type": "number",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      }
+    }
+  }
+}
