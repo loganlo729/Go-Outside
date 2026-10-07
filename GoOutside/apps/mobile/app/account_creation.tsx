@@ -1,4 +1,3 @@
-import { router } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
@@ -14,27 +13,11 @@ import Screen from "../src/components/Screen";
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [forgotPassword, setForgotPassword] = useState(false);
-  const [createAccount, setCreateAccount] = useState(false);
 
   function handleLogin() {
     Alert.alert(
-      "Login Failed",
-      `invalid password for ${email}`
-    );
-  }
-
-  function handleForgotPassword() {
-    Alert.alert(
-      "Forgot Password",
-      `Password reset link sent to ${email}`
-    );
-  }
-
-  function handleCreateAccount() {
-    Alert.alert(
-      "Create Account",
-      `Account created for ${email}`
+      "Login",
+      `Login attempt for ${email}`
     );
   }
 
@@ -75,18 +58,6 @@ export default function LoginScreen() {
             title="Sign In"
             onPress={handleLogin}
           />
-
-          <AppButton
-            title="Forgot Password?"
-            onPress={handleForgotPassword}
-          />
-
-          <AppButton
-            title="Create Account"
-            variant="secondary"
-            onPress={() => router.push("/account_creation")}
-          />
-          
         </View>
       </View>
     </Screen>
