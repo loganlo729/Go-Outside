@@ -13,6 +13,10 @@
   ],
   "tags": [
     {
+      "name": "Authentication",
+      "description": "User authentication and account operations"
+    },
+    {
       "name": "Events",
       "description": "Event operations"
     },
@@ -22,6 +26,34 @@
     }
   ],
   "paths": {
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Create a new account",
+        "description": "Creates a new Supabase Auth account and corresponding GoOutside user record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAccount"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created successfully"
+          },
+          "400": {
+            "description": "Invalid account information or account could not be created"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/api/events": {
       "get": {
         "tags": ["Events"],
@@ -241,6 +273,26 @@
   },
   "components": {
     "schemas": {
+      "CreateAccount": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 6,
+            "example": "Password123!"
+          }
+        }
+      },
       "CreateEvent": {
         "type": "object",
         "required": [
