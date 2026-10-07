@@ -7,8 +7,9 @@ import {
 type AppButtonProps = {
   title: string;
   onPress: () => void;
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "secondary" | "tertiary";
 };
+
 
 export default function AppButton({
   title,
@@ -22,6 +23,8 @@ export default function AppButton({
         styles.button,
         variant === "secondary"
           ? styles.secondary
+          : variant === "tertiary"
+          ? styles.tertiary
           : styles.primary,
         pressed && styles.pressed,
       ]}
@@ -30,6 +33,7 @@ export default function AppButton({
         style={[
           styles.text,
           variant === "secondary" && styles.secondaryText,
+          variant === "tertiary" && styles.tertiaryText,
         ]}
       >
         {title}
@@ -54,6 +58,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#E4EADF",
   },
 
+  tertiary: {
+    backgroundColor: "#F2F4F0",
+  },
+
   pressed: {
     opacity: 0.75,
   },
@@ -66,5 +74,9 @@ const styles = StyleSheet.create({
 
   secondaryText: {
     color: "#315C3A",
+  },
+
+  tertiaryText: {
+    color: "#687269",
   },
 });
