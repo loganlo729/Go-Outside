@@ -17,6 +17,11 @@ export default function RootLayout() {
         name="profile"
         options={{ title: "Profile" }}
       />
+
+      <Stack.Screen
+        name="account_creation"
+        options={{ title: "Create Account" }}
+      />
     </Stack>
   );
 }
