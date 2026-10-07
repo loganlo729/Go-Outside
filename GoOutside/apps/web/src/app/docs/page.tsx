@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 // This relative import reaches out of 'src/app/docs' up to 'apps/web/lib/swagger.json'
-import spec from "../../../lib/swagger.json"; 
+import spec from "../../lib/swagger.json"; 
 import "swagger-ui-react/swagger-ui.css";
 
 // Prevent SSR crashes since swagger-ui relies heavily on browser DOM APIs

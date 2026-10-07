@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getSupabaseClient } from "../../lib/supabase";
+import { getSupabaseClient } from "../lib/supabase";
 
 // Generic types for database rows
 type EventRow = Record<string, unknown>;
