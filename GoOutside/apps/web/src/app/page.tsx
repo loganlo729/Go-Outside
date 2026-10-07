@@ -20,11 +20,11 @@ export default function Home() {
   async function loadEvents() {
     setStatus("loading");
 
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from("Event").select("*");
+    const response = await fetch("/api/events");
+    const data = await response.json();
 
-    if (error) {
-      setStatus(`error: ${error.message}`);
+    if (!response.ok) {
+      setStatus(`error: ${data.message ?? "Failed to load events"}`);
       return;
     }
 
