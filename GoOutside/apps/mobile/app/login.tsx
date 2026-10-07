@@ -78,12 +78,13 @@ export default function LoginScreen() {
 
           <AppButton
             title="Forgot Password?"
+            variant="secondary"
             onPress={handleForgotPassword}
           />
 
           <AppButton
             title="Create Account"
-            variant="secondary"
+            variant="tertiary"
             onPress={() => router.push("/account_creation")}
           />
           
