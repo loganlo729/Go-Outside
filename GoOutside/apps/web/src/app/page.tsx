@@ -1,162 +1,98 @@
-"use client";
-
-import { useState } from "react";
-import { getSupabaseClient } from "../lib/supabase";
-
-// Generic types for database rows
-type EventRow = Record<string, unknown>;
-type UserRow = Record<string, unknown>;
+import Link from "next/link";
 
 export default function Home() {
-  // Event data and loading status
-  const [events, setEvents] = useState<EventRow[]>([]);
-  const [status, setStatus] = useState("idle");
-
-  // User data and loading status
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [userStatus, setUserStatus] = useState("idle");
-
-  // Fetch all events from Supabase
-  async function loadEvents() {
-    setStatus("loading");
-
-    const response = await fetch("/api/events");
-    const data = await response.json();
-
-    if (!response.ok) {
-      setStatus(`error: ${data.message ?? "Failed to load events"}`);
-      return;
-    }
-
-    setEvents(data ?? []);
-    setStatus("loaded");
-  }
-
-  // Fetch all users from Supabase
-  async function loadUsers() {
-    setUserStatus("loading");
-
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from("User").select("*");
-
-    if (error) {
-      setUserStatus(`error: ${error.message}`);
-      return;
-    }
-
-    setUsers(data ?? []);
-    setUserStatus("loaded");
-  }
-
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center px-6 py-16 sm:px-10">
-      {/* Page heading */}
-      <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-        Go Outside
-      </p>
-      <h1 className="mt-4 max-w-3xl text-5xl font-semibold leading-tight text-foreground sm:text-6xl">
-        Find your next reason to step outside.
-      </h1>
-      <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-600">
-        Discover outdoor events and communities around you.
-      </p>
+    <>
+      <section className="hero">
+        <div className="page-container hero-content">
+          <p className="eyebrow">GO OUTSIDE</p>
 
-      {/* Database loading buttons */}
-      <div className="mt-8 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={loadEvents}
-          disabled={status === "loading"}
-          className="w-fit rounded-md bg-emerald-800 px-5 py-3 font-medium text-white hover:bg-emerald-900 disabled:opacity-60"
-        >
-          {status === "loading" ? "Loading events..." : "Load events"}
-        </button>
+          <h1>
+            Find your next reason
+            <br />
+            to step outside.
+          </h1>
 
-        <button
-          type="button"
-          onClick={loadUsers}
-          disabled={userStatus === "loading"}
-          className="w-fit rounded-md border border-emerald-800 px-5 py-3 font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-60"
-        >
-          {userStatus === "loading" ? "Loading users..." : "Load users"}
-        </button>
-      </div>
+          <p className="hero-description">
+            Discover outdoor events, meet new people, and find
+            communities built around the things you love doing.
+          </p>
 
-      {/* Display event loading errors */}
-      {status.startsWith("error:") && (
-        <p role="alert" className="mt-4 text-sm text-red-700">
-          {status.slice("error: ".length)}
-        </p>
-      )}
+          <div className="hero-actions">
+            <Link href="/events" className="button button-primary">
+              Explore Events
+            </Link>
 
-      {/* Display message if no events exist */}
-      {status === "loaded" && events.length === 0 && (
-        <p className="mt-6 text-zinc-600">No events found.</p>
-      )}
+            <Link
+              href="/communities"
+              className="button button-secondary"
+            >
+              Find Communities
+            </Link>
+          </div>
+        </div>
+      </section>
 
-      {/* Display event data */}
-      {events.length > 0 && (
-        <ul className="mt-8 divide-y divide-zinc-200 border-y border-zinc-200">
-          {events.map((event, index) => (
-            <li key={String(event.id ?? index)} className="py-5">
-              <dl className="grid gap-3 sm:grid-cols-2">
-                {Object.entries(event).map(([column, value]) => (
-                  <div key={column}>
-                    <dt className="text-xs font-semibold uppercase text-zinc-500">
-                      {column}
-                    </dt>
-                    <dd className="mt-1 break-words text-sm text-zinc-900">
-                      {typeof value === "string"
-                        ? value
-                        : JSON.stringify(value) ?? String(value)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </li>
-          ))}
-        </ul>
-      )}
+      <section className="features">
+        <div className="page-container">
+          <div className="section-heading">
+            <p className="eyebrow">EXPLORE</p>
+            <h2>There's more happening outside.</h2>
 
-      {/* Display user loading errors */}
-      {userStatus.startsWith("error:") && (
-        <p role="alert" className="mt-4 text-sm text-red-700">
-          {userStatus.slice("error: ".length)}
-        </p>
-      )}
+            <p>
+              Find activities and people that give you a reason
+              to close the laptop for a while.
+            </p>
+          </div>
 
-      {/* Display message if no users exist */}
-      {userStatus === "loaded" && users.length === 0 && (
-        <p className="mt-6 text-zinc-600">No users found.</p>
-      )}
+          <div className="feature-grid">
+            <article className="feature-card">
+              <div className="feature-icon">01</div>
 
-      {/* Display user data */}
-      {users.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-2xl font-semibold text-foreground">Users</h2>
+              <h3>Discover Events</h3>
 
-          <ul className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
-            {users.map((user, index) => (
-              <li key={String(user.id ?? index)} className="py-5">
-                <dl className="grid gap-3 sm:grid-cols-2">
-                  {Object.entries(user).map(([column, value]) => (
-                    <div key={column}>
-                      <dt className="text-xs font-semibold uppercase text-zinc-500">
-                        {column}
-                      </dt>
-                      <dd className="mt-1 break-words text-sm text-zinc-900">
-                        {typeof value === "string"
-                          ? value
-                          : JSON.stringify(value) ?? String(value)}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </main>
+              <p>
+                Find outdoor events happening around you, from
+                casual meetups to organized activities.
+              </p>
+
+              <Link href="/events">
+                Browse events →
+              </Link>
+            </article>
+
+            <article className="feature-card">
+              <div className="feature-icon">02</div>
+
+              <h3>Join Communities</h3>
+
+              <p>
+                Connect with groups built around shared outdoor
+                interests and activities.
+              </p>
+
+              <Link href="/communities">
+                Find communities →
+              </Link>
+            </article>
+
+            <article className="feature-card">
+              <div className="feature-icon">03</div>
+
+              <h3>Meet People</h3>
+
+              <p>
+                Turn shared interests into real experiences with
+                people in your area.
+              </p>
+
+              <Link href="/profile">
+                View your profile →
+              </Link>
+            </article>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }
