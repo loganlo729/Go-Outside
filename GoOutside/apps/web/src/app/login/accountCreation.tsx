@@ -4,6 +4,9 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "../../lib/supabase/client";
 
+
+
+
 export default function LoginPage() {
   const router = useRouter();
 
