@@ -277,7 +277,8 @@
         "type": "object",
         "required": [
           "email",
-          "password"
+          "password",
+          "username"
         ],
         "properties": {
           "email": {
@@ -290,6 +291,11 @@
             "format": "password",
             "minLength": 6,
             "example": "Password123!"
+          },
+          "username": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_]{3,30}$",
+            "example": "outdoorfan"
           }
         }
       },

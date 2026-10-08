@@ -490,3 +490,17 @@ input {
 
   font-size: 14px;
 }
+
+.auth-hint,
+.auth-success {
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.auth-hint {
+  color: #69726b;
+}
+
+.auth-success {
+  color: #28713a;
+}
