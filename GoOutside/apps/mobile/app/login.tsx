@@ -1,5 +1,5 @@
-import { router } from "expo-router";
 import { useState } from "react";
+import { useRouter } from "expo-router";
 import {
   Alert,
   StyleSheet,
@@ -7,21 +7,29 @@ import {
   TextInput,
   View,
 } from "react-native";
-
 import AppButton from "../src/components/AppButton";
 import Screen from "../src/components/Screen";
+import { supabase } from "../src/lib/supabase";
 
 export default function LoginScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [forgotPassword, setForgotPassword] = useState(false);
   const [createAccount, setCreateAccount] = useState(false);
 
-  function handleLogin() {
-    Alert.alert(
-      "Login Failed",
-      `invalid password for ${email}`
-    );
+  async function handleLogin() {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      Alert.alert("Login Failed", error.message);
+      return;
+    }
+
+    router.replace("/profile");
   }
 
   function handleForgotPassword() {
@@ -85,7 +93,7 @@ export default function LoginScreen() {
           <AppButton
             title="Create Account"
             variant="tertiary"
-            onPress={() => router.push("/account_creation")}
+            onPress={() => router.push("/signup")}
           />
           
         </View>
