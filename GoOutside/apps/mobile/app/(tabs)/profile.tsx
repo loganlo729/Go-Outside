@@ -1,13 +1,44 @@
+
+import { useState } from "react";
+import { useRouter } from "expo-router";
 import {
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
-import AppButton from "../src/components/AppButton";
-import Screen from "../src/components/Screen";
+import AppButton from "../../src/components/AppButton";
+import Screen from "../../src/components/Screen";
+import { supabase } from "../../src/lib/supabase";
 
 export default function ProfileScreen() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleLogout() {
+    if (loading) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const { error: logoutError } = await supabase.auth.signOut();
+
+      if (logoutError) {
+        setError(logoutError.message);
+        return;
+      }
+
+      router.replace("/");
+    } catch {
+      setError("Unable to log out. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <Screen>
       <View style={styles.header}>
@@ -38,6 +69,19 @@ export default function ProfileScreen() {
           onPress={() => {}}
         />
       </View>
+
+      <View style={styles.button}>
+        <AppButton
+          title={loading ? "Logging Out..." : "Log Out"}
+          onPress={handleLogout}
+        />
+      </View>
+
+      {error !== "" && (
+        <Text style={styles.error}>
+          {error}
+        </Text>
+      )}
     </Screen>
   );
 }
@@ -96,5 +140,12 @@ const styles = StyleSheet.create({
 
   button: {
     marginTop: 16,
+  },
+
+  error: {
+    marginTop: 12,
+    color: "#B42318",
+    fontSize: 14,
+    textAlign: "center",
   },
 });
