@@ -19,22 +19,27 @@ export default function SignUpPage() {
 
   const supabase = getSupabaseClient();
 
-  // Check whether a username already exists
-  async function checkUsernameExists(username: string): Promise<boolean> {
+  // Check whether a username already exists  
+  async function checkUsernameExists(
+    username: string
+  ): Promise<boolean> {
     const cleanUsername = username.trim().toLowerCase();
 
-    const { data, error } = await supabase
-      .from("Profile")
-      .select("username")
-      .eq("username", cleanUsername)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc(
+      "is_username_taken",
+      {
+        requested_username: cleanUsername,
+      }
+    );
 
     if (error) {
+      console.error("Username availability check failed:", error);
       throw new Error(error.message);
     }
 
-    return !!data;
+    return data === true;
   }
+
 
   // Check the username when the user leaves the field
   async function handleCheck() {
@@ -52,14 +57,18 @@ export default function SignUpPage() {
       const isTaken = await checkUsernameExists(cleanUsername);
 
       if (isTaken) {
-        setUsernameError("This username is already taken.");
+        setUsernameError("This username is already in use.");
+      } else {
+        setUsernameError("");
       }
-    } catch {
+    } catch (err) {
+      console.error("Username validation error:", err);
       setUsernameError("Could not check username availability.");
     } finally {
       setCheckingUsername(false);
     }
   }
+
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
