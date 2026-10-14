@@ -11,6 +11,7 @@ export const metadata: Metadata = {
     "Discover outdoor events and communities around you.",
 };
 
+/* Sidebar layout
 export default function RootLayout({
   children,
 }: {
@@ -30,7 +31,8 @@ export default function RootLayout({
     </html>
   );
 }
-/* Main application layout 
+*/
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -52,4 +54,3 @@ export default function RootLayout({
     </html>
   );
 }
-  */
