@@ -57,9 +57,14 @@ export default function Navbar() {
   return (
     <header className="navbar">
       <div className="navbar-inner">
-        <Link href="/" className="logo">
-          Go Outside
-        </Link>
+        <Link href="/" className="sidebar-logo">
+        <img
+          src="/logo.svg"
+          alt="GoOutside Logo"
+          className="sidebar-logo-image"
+        />
+      </Link>
+
 
         <nav className="nav-links">
           <Link href="/">Home</Link>
