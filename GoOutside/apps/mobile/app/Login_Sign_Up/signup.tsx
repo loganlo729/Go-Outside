@@ -8,9 +8,9 @@ import {
   View,
 } from "react-native";
 
-import AppButton from "../src/components/AppButton";
-import Screen from "../src/components/Screen";
-import { supabase } from "../src/lib/supabase";
+import AppButton from "../../src/components/AppButton";
+import Screen from "../../src/components/Screen";
+import { supabase } from "../../src/lib/supabase";
 
 export default function SignUpScreen() {
   const router = useRouter();
