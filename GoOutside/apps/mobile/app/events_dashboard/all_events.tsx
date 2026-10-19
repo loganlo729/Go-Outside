@@ -1,6 +1,7 @@
-
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
+  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
@@ -9,8 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+
 import Screen from "../../src/components/Screen";
+import { supabase } from "../../src/lib/supabase";
 
 const categories = [
   "All Categories",
@@ -25,56 +27,32 @@ const categories = [
   "Networking",
 ];
 
-const sampleEvents = [
-  {
-    id: "1",
-    title: "Pizza Party",
-    date: "Friday, Oct 18th · 5:00 PM",
-    location: "Behrend Campus",
-    host: "Behrend Benefitting THON",
-    attendees: 20,
-    category: "Social",
-    featured: true,
-    image:
-      "https://images.unsplash.com/photo-1579751626657-72bc17010498?w=700",
-  },
-  {
-    id: "2",
-    title: "BYO Dessert Night",
-    date: "Sunday, Oct 20th · 2:00 PM",
-    location: "Park",
-    host: "Campus Community",
-    attendees: 50,
-    category: "Food",
-    featured: true,
-    image:
-      "https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=700",
-  },
-  {
-    id: "3",
-    title: "Pool Party",
-    date: "Sunday, Oct 20th · 4:00 PM",
-    location: "Pool",
-    host: "Campus Recreation",
-    attendees: 50,
-    category: "Social",
-    featured: false,
-    image:
-      "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=700",
-  },
-  {
-    id: "4",
-    title: "Community Cleanup",
-    date: "Tuesday, Oct 22nd · 10:00 AM",
-    location: "Presque Isle",
-    host: "Local Volunteers",
-    attendees: 15,
-    category: "Community",
-    featured: false,
-    image:
-      "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=700",
-  },
-];
+type EventRow = {
+  eventID: string;
+  userID: string;
+  categoryID: string | null;
+  eventTitle: string;
+  eventDescription: string | null;
+  eventStartTime: string;
+  eventEndTime: string;
+  eventLocation: string;
+  eventCost: number | null;
+  status: string | null;
+  eventImageURL: string | null;
+  isFeatured: boolean;
+};
+
+type DisplayEvent = {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+  host: string;
+  attendees: number;
+  category: string;
+  featured: boolean;
+  image: string | null;
+};
 
 export default function All_Events() {
   const router = useRouter();
@@ -89,17 +67,83 @@ export default function All_Events() {
     useState("Within 15 miles");
   const [goingEvents, setGoingEvents] = useState<string[]>([]);
 
-  const filteredEvents = sampleEvents.filter((event) => {
-    const matchesSearch =
-      event.title.toLowerCase().includes(search.toLowerCase()) ||
-      event.location.toLowerCase().includes(search.toLowerCase()) ||
-      event.host.toLowerCase().includes(search.toLowerCase());
+  const [events, setEvents] = useState<DisplayEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [eventsError, setEventsError] = useState("");
 
-    const matchesCategory =
-      selectedCategory === "All Categories" ||
-      event.category === selectedCategory;
+  const loadEvents = useCallback(async () => {
+    setLoadingEvents(true);
+    setEventsError("");
 
-    return matchesSearch && matchesCategory;
+    try {
+      const { data, error } = await supabase
+        .from("Event")
+        .select(`
+          eventID,
+          userID,
+          categoryID,
+          eventTitle,
+          eventDescription,
+          eventStartTime,
+          eventEndTime,
+          eventLocation,
+          eventCost,
+          status,
+          eventImageURL,
+          isFeatured
+        `)
+        .order("eventStartTime", { ascending: true });
+
+      if (error) throw error;
+
+      const formattedEvents: DisplayEvent[] = (
+        (data ?? []) as EventRow[]
+      ).map((event) => ({
+        id: event.eventID,
+        title: event.eventTitle,
+        date: new Date(event.eventStartTime).toLocaleString(
+          undefined,
+          {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          }
+        ),
+        location: event.eventLocation,
+        host: "Host information unavailable",
+        attendees: 0,
+        category: "Uncategorized",
+        featured: event.isFeatured,
+        image: event.eventImageURL,
+      }));
+
+      setEvents(formattedEvents);
+    } catch (error) {
+      setEventsError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load events."
+      );
+    } finally {
+      setLoadingEvents(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadEvents();
+    }, [loadEvents])
+  );
+
+  const filteredEvents = events.filter((event) => {
+  const matchesSearch =
+    event.title.toLowerCase().includes(search.toLowerCase()) ||
+    event.location.toLowerCase().includes(search.toLowerCase()) ||
+    event.host.toLowerCase().includes(search.toLowerCase());
+
+    return matchesSearch;
   });
 
   const featuredEvents = filteredEvents.filter(
@@ -118,13 +162,13 @@ export default function All_Events() {
     );
   }
 
-  function renderEventCard(event: (typeof sampleEvents)[number]) {
+  function renderEventCard(event: (typeof events)[number]) {
     const isGoing = goingEvents.includes(event.id);
 
     return (
       <View key={event.id} style={styles.eventCard}>
         <Image
-          source={{ uri: event.image }}
+          source={{ uri: event.image ?? "https://via.placeholder.com/294x166" }}
           style={styles.eventImage}
           resizeMode="cover"
         />
@@ -179,7 +223,7 @@ export default function All_Events() {
 
   function renderEventSection(
     title: string,
-    events: typeof sampleEvents
+    events: DisplayEvent[]
   ) {
     return (
       <View style={styles.eventSection}>
