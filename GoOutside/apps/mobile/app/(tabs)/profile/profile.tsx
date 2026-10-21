@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import type { User } from "@supabase/supabase-js";
 
-import AppButton from "../../../src/components/UI/AppButton";
+import AppButton from "../../../src/components/ui/AppButton";
 import Screen from "../../../src/components/Screen";
 import { supabase } from "../../../src/lib/supabase";
 
