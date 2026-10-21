@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
 
   subtitle: {
     marginTop: 8,
-    color: "#687269",
+    color: "#1D2B20",//687269
     fontSize: 17,
   },
 
@@ -134,6 +134,7 @@ const styles = StyleSheet.create({
 
   input: {
     backgroundColor: "#F2F4F0",
+    color: "#687269",
     borderRadius: 10,
     padding: 14,
     fontSize: 16,
