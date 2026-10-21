@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 
-import AppButton from "../../src/components/AppButton";
+import AppButton from "../../src/components/UI/AppButton";
 import Screen from "../../src/components/Screen";
 import { supabase } from "../../src/lib/supabase";
 
