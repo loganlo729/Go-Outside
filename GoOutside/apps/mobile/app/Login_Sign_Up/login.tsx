@@ -93,7 +93,7 @@ export default function LoginScreen() {
           <AppButton
             title="Create Account"
             variant="tertiary"
-            onPress={() => router.push("/signup")}
+            onPress={() => router.push("../Login_Sign_Up/create_account")}
           />
           
         </View>

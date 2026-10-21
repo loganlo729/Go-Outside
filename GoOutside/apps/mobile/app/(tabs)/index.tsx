@@ -79,13 +79,13 @@ export default function HomeScreen() {
             <>
               <AppButton
                 title="Log In"
-                onPress={() => router.push("/login")}
+                onPress={() => router.push("../Login_Sign_Up")}
               />
 
               <AppButton
                 title="Create Account"
                 variant="secondary"
-                onPress={() => router.push("/signup")}
+                onPress={() => router.push("../Login_Sign_Up")}
               />
             </>
           )}
