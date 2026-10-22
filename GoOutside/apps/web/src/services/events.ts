@@ -6,25 +6,17 @@ import type {
   EventRecord,
 } from "../types/event";
 
-// --------------------------------------------------
 // Event Query Fields
-// --------------------------------------------------
-
 const fields =
   "eventID,userID,categoryID,eventTitle,eventDescription,eventStartTime,eventEndTime,eventLocation,eventCost,eventImageURL,isFeatured,status";
 
-// --------------------------------------------------
 // Supabase Client
-// --------------------------------------------------
-
 export function eventClient() {
   return getSupabaseClient();
 }
 
-// --------------------------------------------------
-// Fetch Upcoming Public Events and Categories
-// --------------------------------------------------
 
+// Fetch Upcoming Public Events and Categories
 export async function getUpcomingEventsAndCategories(): Promise<{
   events: EventRecord[];
   categories: CategoryRecord[];
@@ -60,10 +52,7 @@ export async function getUpcomingEventsAndCategories(): Promise<{
   };
 }
 
-// --------------------------------------------------
 // Fetch Events Created by the Current User
-// --------------------------------------------------
-
 export async function getMyEvents(
   userID: string
 ): Promise<EventRecord[]> {
@@ -81,10 +70,7 @@ export async function getMyEvents(
 }
 
 
-// --------------------------------------------------
 // Create Event Types
-// --------------------------------------------------
-
 export interface CreateEventInput {
   eventTitle: string | null;
   categoryID: string | null;
@@ -97,10 +83,7 @@ export interface CreateEventInput {
   status: "drafted" | "publicActive";
 }
 
-// --------------------------------------------------
 // Fetch Available Categories
-// --------------------------------------------------
-
 export async function getEventCategories() {
   const { data, error } = await eventClient()
     .from("Category")
@@ -114,14 +97,11 @@ export async function getEventCategories() {
   return (data ?? []) as CategoryRecord[];
 }
 
-// --------------------------------------------------
 // Create an Event
-// --------------------------------------------------
-
 export async function createEvent(input: CreateEventInput) {
   const client = eventClient();
 
-  // Identify the currently authenticated user.
+  // Get the currently authenticated user.
   const {
     data: { user },
     error: authError,
@@ -136,26 +116,37 @@ export async function createEvent(input: CreateEventInput) {
   }
 
   // Insert the event into Supabase.
-  const { error } = await client.from("Event").insert({
-    userID: user.id,
+  const { data, error } = await client
+    .from("Event")
+    .insert({
+      userID: user.id,
 
-    eventTitle: input.eventTitle,
-    categoryID: input.categoryID,
-    eventDescription: input.eventDescription,
+      eventTitle: input.eventTitle,
+      categoryID: input.categoryID,
+      eventDescription: input.eventDescription,
 
-    eventStartTime: input.eventStartTime,
-    eventEndTime: input.eventEndTime,
+      eventStartTime: input.eventStartTime,
+      eventEndTime: input.eventEndTime,
 
-    eventLocation: input.eventLocation,
-    eventCost: input.eventCost,
+      eventLocation: input.eventLocation,
+      eventCost: input.eventCost,
 
-    isFeatured: input.isFeatured,
-    eventImageURL: null,
+      isFeatured: input.isFeatured,
+      eventImageURL: null,
 
-    status: input.status,
-  });
+      status: input.status,
+    })
+    .select("eventID")
+    .single();
 
   if (error) {
-    throw error;
+    console.error("Error creating event:", error);
+
+    throw new Error(
+      `${error.message}${error.details ? ` — ${error.details}` : ""}`
+    );
   }
+
+  return data;
 }
+
