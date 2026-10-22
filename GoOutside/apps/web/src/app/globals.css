@@ -35,7 +35,7 @@ input {
 }
 
 .page-container {
-  width: min(1120px, calc(100% - 48px));
+  width: min(1920px, calc(100% - 48px));
   margin: 0 auto;
 }
 
@@ -47,8 +47,9 @@ input {
 }
 
 .navbar-inner {
-  width: min(1120px, calc(100% - 48px));
-  height: 72px;
+  width: min(1920px, calc(100% - 48px));
+  height: max(72px, 8vh); /* Set your desired fixed (or percentage) height */
+  box-sizing: border-box;
   margin: 0 auto;
 
   display: flex;
@@ -115,7 +116,7 @@ input {
 }
 
 .hero-content {
-  max-width: 1120px;
+  max-width: 1920px;
 }
 
 .eyebrow {
@@ -422,7 +423,7 @@ input {
 }
 
 .footer-inner {
-  width: min(1120px, calc(100% - 48px));
+  width: min(1920px, calc(100% - 48px));
   margin: 0 auto;
 
   display: flex;

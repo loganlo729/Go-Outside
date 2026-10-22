@@ -14,8 +14,7 @@ export default function CommunitiesPage() {
         <h2>Find your people.</h2>
 
         <p>
-          Communities will appear here once they're connected
-          to the Go Outside API.
+          Communities are coming soon!
         </p>
       </div>
     </div>

@@ -533,8 +533,7 @@ export default function ProfilePage() {
             <div className="account-security-row">
               <div>
                 <p>
-                  Having security concerns? Secure
-                  your account instantly.
+                   
                 </p>
               </div>
 
