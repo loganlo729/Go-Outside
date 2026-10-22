@@ -130,18 +130,29 @@ export default function MyEventsPage() {
     <main className={styles.page}>
       {/* Header */}
 
-      <header className={styles.header}>
-        <h1 className={styles.heading}>Events</h1>
+      
+    <header className={styles.header}>
+      <h1 className={styles.heading}>My Events</h1>
 
+      <div className={styles.headerActions}>
         <button
           type="button"
-          className={styles.button}
+          className={styles.refreshButton}
           onClick={() => void load()}
           disabled={loading}
         >
           Refresh
         </button>
-      </header>
+
+        <Link
+          href="/events/create_event"
+          className={styles.button}
+        >
+          + Create Event
+        </Link>
+      </div>
+    </header>
+
 
       {/* Loading, Error, and Authentication States */}
 

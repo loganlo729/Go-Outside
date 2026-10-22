@@ -80,3 +80,82 @@ export async function getMyEvents(
   return (data ?? []) as unknown as EventRecord[];
 }
 
+
+// --------------------------------------------------
+// Create Event Types
+// --------------------------------------------------
+
+export interface CreateEventInput {
+  eventTitle: string | null;
+  categoryID: string | null;
+  eventDescription: string | null;
+  eventStartTime: string | null;
+  eventEndTime: string | null;
+  eventLocation: string | null;
+  eventCost: number;
+  isFeatured: boolean;
+  status: "drafted" | "publicActive";
+}
+
+// --------------------------------------------------
+// Fetch Available Categories
+// --------------------------------------------------
+
+export async function getEventCategories() {
+  const { data, error } = await eventClient()
+    .from("Category")
+    .select("categoryID, categoryName")
+    .order("categoryName", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as CategoryRecord[];
+}
+
+// --------------------------------------------------
+// Create an Event
+// --------------------------------------------------
+
+export async function createEvent(input: CreateEventInput) {
+  const client = eventClient();
+
+  // Identify the currently authenticated user.
+  const {
+    data: { user },
+    error: authError,
+  } = await client.auth.getUser();
+
+  if (authError) {
+    throw authError;
+  }
+
+  if (!user) {
+    throw new Error("You must be logged in to create an event.");
+  }
+
+  // Insert the event into Supabase.
+  const { error } = await client.from("Event").insert({
+    userID: user.id,
+
+    eventTitle: input.eventTitle,
+    categoryID: input.categoryID,
+    eventDescription: input.eventDescription,
+
+    eventStartTime: input.eventStartTime,
+    eventEndTime: input.eventEndTime,
+
+    eventLocation: input.eventLocation,
+    eventCost: input.eventCost,
+
+    isFeatured: input.isFeatured,
+    eventImageURL: null,
+
+    status: input.status,
+  });
+
+  if (error) {
+    throw error;
+  }
+}

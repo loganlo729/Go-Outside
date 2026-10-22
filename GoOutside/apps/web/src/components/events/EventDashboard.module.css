@@ -287,3 +287,29 @@
     padding: 0 16px;
   }
 }
+
+
+
+
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.refreshButton {
+  padding: 10px 17px;
+  border: 1px solid #d7dee3;
+  border-radius: 8px;
+  background: white;
+  color: #42516b;
+  cursor: pointer;
+  font: inherit;
+}
+
+.refreshButton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

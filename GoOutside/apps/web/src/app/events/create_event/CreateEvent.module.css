@@ -1,0 +1,600 @@
+
+/* --------------------------------------------------
+   Page Layout
+-------------------------------------------------- */
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px 80px;
+  background: #f6f7f3;
+}
+
+.card {
+  width: 100%;
+  max-width: 920px;
+  min-width: 0;
+  height: fit-content;
+  padding: 44px 52px;
+
+  background: #ffffff;
+  border: 1px solid #d8ddd4;
+  border-radius: 28px;
+
+  box-shadow: 0 8px 30px rgba(20, 32, 24, 0.04);
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------
+   Page Header
+-------------------------------------------------- */
+
+.topRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.eyebrow {
+  margin: 0 0 16px;
+
+  color: #5d7c57;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0 0 16px;
+
+  color: #1f2e22;
+  font-size: 56px;
+  line-height: 1.1;
+  font-weight: 800;
+}
+
+.subtitle {
+  max-width: 720px;
+  margin: 0;
+
+  color: #63715f;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.backLink {
+  flex-shrink: 0;
+  margin-top: 8px;
+
+  color: #3f6d3f;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------
+   Form Layout
+-------------------------------------------------- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.twoColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.twoColumns > * {
+  min-width: 0;
+}
+
+.label {
+  display: block;
+
+  color: #1f2e22;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.helpText {
+  margin: 0;
+
+  color: #6d786d;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------
+   Inputs
+-------------------------------------------------- */
+
+.input,
+.textarea,
+.select,
+.dateInput {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  padding: 16px 18px;
+
+  background: #ffffff;
+  border: 1px solid #cfd6cb;
+  border-radius: 16px;
+
+  color: #1f2e22;
+  font-family: inherit;
+  font-size: 16px;
+
+  outline: none;
+  box-sizing: border-box;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: #7c887b;
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus,
+.dateInput:focus {
+  border-color: #3f6d3f;
+  box-shadow: 0 0 0 3px rgba(63, 109, 63, 0.12);
+}
+
+.textarea {
+  min-height: 170px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------
+   Date Inputs
+-------------------------------------------------- */
+
+.dateInput {
+  margin-top: 10px;
+  color-scheme: light;
+}
+
+.dateInput::-webkit-calendar-picker-indicator {
+  opacity: 0.8;
+  cursor: pointer;
+}
+
+/* --------------------------------------------------
+   Time Inputs
+-------------------------------------------------- */
+
+.timeRow {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    12px
+    minmax(0, 1fr)
+    minmax(0, 1fr);
+
+  align-items: center;
+  gap: 10px;
+
+  width: 100%;
+  min-width: 0;
+}
+
+.timeRow .select {
+  min-width: 0;
+  min-height: 58px;
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+}
+
+.timeSeparator {
+  color: #1f2e22;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* --------------------------------------------------
+   Event Cost
+-------------------------------------------------- */
+
+.costField {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  min-height: 58px;
+  padding: 0 18px;
+
+  background: #ffffff;
+  border: 1px solid #cfd6cb;
+  border-radius: 16px;
+
+  box-sizing: border-box;
+}
+
+.costField:focus-within {
+  border-color: #3f6d3f;
+  box-shadow: 0 0 0 3px rgba(63, 109, 63, 0.12);
+}
+
+.costSymbol {
+  color: #63715f;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.costInput {
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 12px 0;
+
+  background: transparent;
+  border: none;
+  outline: none;
+
+  color: #1f2e22;
+  font-family: inherit;
+  font-size: 16px;
+}
+
+/* --------------------------------------------------
+   Featured Post Switch
+-------------------------------------------------- */
+
+.featureRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 18px;
+
+  background: #fafbf8;
+  border: 1px solid #d8ddd4;
+  border-radius: 16px;
+
+  box-sizing: border-box;
+}
+
+.switchWrap {
+  position: relative;
+  display: inline-flex;
+
+  width: 58px;
+  height: 32px;
+  flex-shrink: 0;
+
+  cursor: pointer;
+}
+
+.switchWrap input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.switchSlider {
+  position: absolute;
+  inset: 0;
+
+  background: #cfd6cb;
+  border-radius: 999px;
+
+  pointer-events: none;
+  transition: background 0.2s ease;
+}
+
+.switchSlider::before {
+  content: "";
+
+  position: absolute;
+  top: 4px;
+  left: 4px;
+
+  width: 24px;
+  height: 24px;
+
+  background: #ffffff;
+  border-radius: 50%;
+
+  transition: transform 0.2s ease;
+}
+
+.switchWrap input:checked + .switchSlider {
+  background: #3f6d3f;
+}
+
+.switchWrap input:checked + .switchSlider::before {
+  transform: translateX(26px);
+}
+
+.switchWrap input:focus-visible + .switchSlider {
+  outline: 3px solid rgba(63, 109, 63, 0.4);
+  outline-offset: 3px;
+}
+
+/* --------------------------------------------------
+   Photo Upload Placeholder
+-------------------------------------------------- */
+
+.uploadBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  width: 100%;
+  min-height: 200px;
+  padding: 36px 24px;
+
+  background: #fafbf8;
+  border: 2px dashed #cfd6cb;
+  border-radius: 20px;
+
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.uploadIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 56px;
+  height: 56px;
+
+  background: #e6efe2;
+  border-radius: 50%;
+
+  color: #3f6d3f;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.uploadBox strong {
+  color: #1f2e22;
+  font-size: 16px;
+}
+
+/* --------------------------------------------------
+   Form Buttons
+-------------------------------------------------- */
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+
+  padding-top: 24px;
+  border-top: 1px solid #e1e6ea;
+}
+
+.primaryButton,
+.secondaryAction,
+.secondaryButton,
+.ghostButton {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+
+  min-height: 56px;
+  padding: 0 24px;
+
+  border: none;
+  border-radius: 16px;
+
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+
+  cursor: pointer;
+  box-sizing: border-box;
+
+  transition:
+    background 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.primaryButton {
+  background: #3f6d3f;
+  color: #ffffff;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: #315832;
+}
+
+.secondaryAction {
+  background: #e5eadf;
+  color: #2f5b35;
+}
+
+.secondaryAction:hover:not(:disabled) {
+  background: #d9e3d3;
+}
+
+.secondaryButton {
+  background: #eef1ea;
+  color: #859082;
+  cursor: not-allowed;
+}
+
+.ghostButton {
+  background: #ffffff;
+  border: 1px solid #cfd6cb;
+  color: #516150;
+}
+
+.ghostButton:hover {
+  background: #f6f7f3;
+}
+
+.primaryButton:disabled,
+.secondaryAction:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* --------------------------------------------------
+   Messages and Errors
+-------------------------------------------------- */
+
+.error {
+  margin: 0;
+
+  color: #b42318;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.message {
+  margin: 0;
+
+  color: #63715f;
+  font-size: 16px;
+}
+
+.retryButton {
+  padding: 0;
+
+  background: transparent;
+  border: none;
+
+  color: #3f6d3f;
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+
+  cursor: pointer;
+}
+
+/* --------------------------------------------------
+   Tablet Layout
+-------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .card {
+    padding: 32px 28px;
+  }
+
+  .title {
+    font-size: 46px;
+  }
+}
+
+/* --------------------------------------------------
+   Single-Column Layout
+-------------------------------------------------- */
+
+@media (max-width: 800px) {
+  .twoColumns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .topRow {
+    flex-direction: column;
+  }
+
+  .dateInput {
+    width: 100%;
+  }
+}
+
+/* --------------------------------------------------
+   Mobile Layout
+-------------------------------------------------- */
+
+@media (max-width: 600px) {
+  .page {
+    padding: 20px 12px 60px;
+  }
+
+  .card {
+    padding: 28px 20px;
+    border-radius: 22px;
+  }
+
+  .topRow {
+    gap: 16px;
+    margin-bottom: 26px;
+  }
+
+  .title {
+    font-size: 38px;
+  }
+
+  .subtitle {
+    font-size: 16px;
+  }
+
+  .form {
+    gap: 24px;
+  }
+
+  .timeRow {
+    gap: 6px;
+  }
+
+  .timeRow .select {
+    padding: 12px 8px;
+    font-size: 14px;
+  }
+
+  .featureRow {
+    padding: 10px 14px;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .primaryButton,
+  .secondaryAction,
+  .ghostButton {
+    width: 100%;
+  }
+}
+
