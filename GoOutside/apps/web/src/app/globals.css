@@ -756,3 +756,23 @@ input {
   width: 100%;             /* Spans full width */
 }
 
+
+.events-nav {
+  display: flex;
+  gap: 28px;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e1e6ea;
+}
+
+.events-nav-link {
+  color: #53617a;
+  font-size: 15px;
+  text-decoration: none;
+  padding-bottom: 8px;
+}
+
+.events-nav-link.active {
+  color: #31988f;
+  font-weight: 700;
+  border-bottom: 2px solid #31988f;
+}

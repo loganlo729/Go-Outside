@@ -68,7 +68,7 @@ export default function Navbar() {
 
         <nav className="nav-links">
           <Link href="/">Home</Link>
-          <Link href="/events">Events</Link>
+          <Link href="/events/all_events">Events</Link>
           <Link href="/communities">Communities</Link>
         </nav>
 
