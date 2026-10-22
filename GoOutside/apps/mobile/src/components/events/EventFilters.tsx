@@ -1,6 +1,6 @@
 import React from "react";
 import { ScrollView, StyleSheet } from "react-native";
-import FilterChip from "../UI/FilterChip";
+import FilterChip from "../ui/FilterChip";
 import type { CategoryRecord, DateFilter } from "../../types/event";
 
 type Props = {

@@ -1,3 +1,4 @@
+
 import { Stack } from "expo-router";
 
 export default function EventsLayout() {
@@ -5,7 +6,9 @@ export default function EventsLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "#FFFFFF" },
+        contentStyle: {
+          backgroundColor: "#FFFFFF",
+        },
       }}
     >
       <Stack.Screen name="index" />
@@ -14,3 +17,5 @@ export default function EventsLayout() {
     </Stack>
   );
 }
+
+

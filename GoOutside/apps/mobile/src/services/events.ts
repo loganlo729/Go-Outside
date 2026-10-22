@@ -10,13 +10,29 @@ export async function getUpcomingEventsAndCategories(): Promise<{
   const [eventsResponse, categoriesResponse] = await Promise.all([
     supabase
       .from("Event")
-      .select("eventID,userID,categoryID,eventTitle,eventDescription,eventStartTime,eventEndTime,eventLocation,eventCost,eventImageURL,isFeatured,status")
+      .select(`
+        eventID,
+        userID,
+        categoryID,
+        eventTitle,
+        eventDescription,
+        eventStartTime,
+        eventEndTime,
+        eventLocation,
+        eventCost,
+        eventImageURL,
+        isFeatured,
+        status
+      `)
       .eq("status", PUBLISHED_STATUS)
       .gte("eventStartTime", new Date().toISOString())
       .order("eventStartTime", { ascending: true }),
     supabase
       .from("Category")
-      .select("categoryID,categoryName")
+      .select(`
+        categoryID,
+        categoryName
+      `)
       .order("categoryName", { ascending: true }),
   ]);
 
@@ -27,4 +43,37 @@ export async function getUpcomingEventsAndCategories(): Promise<{
     events: (eventsResponse.data ?? []) as EventRecord[],
     categories: (categoriesResponse.data ?? []) as CategoryRecord[],
   };
+}
+
+
+
+export async function getMyEvents(
+  userID: string
+): Promise<EventRecord[]> {
+  const { data, error } = await supabase
+    .from("Event")
+    .select(`
+      eventID,
+      userID,
+      categoryID,
+      eventTitle,
+      eventDescription,
+      eventStartTime,
+      eventEndTime,
+      eventLocation,
+      eventCost,
+      eventImageURL,
+      isFeatured,
+      status
+    `)
+    .eq("userID", userID)
+    .order("eventStartTime", {
+      ascending: false,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as EventRecord[];
 }
