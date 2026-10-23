@@ -15,9 +15,12 @@ import {
   View,
 } from "react-native";
 
+
 import DateTimePicker, {
-  DateTimePickerEvent,
+  DateTimePickerAndroid,
+  type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
+
 
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -245,58 +248,122 @@ export default function CreateEventScreen() {
   // Handle Native Date / Time Picker
   // --------------------------------------------------
 
-  function onPickerChange(
-    event: DateTimePickerEvent,
-    selected?: Date
-  ) {
+    function openPicker(target: PickerTarget) {
+    setError("");
+
+    // Android: Open the system's native dialog directly.
+
     if (Platform.OS === "android") {
-      setPicker(null);
+        const isStart = target.startsWith("start");
+        const isDate = target.endsWith("Date");
+
+        const selectedValue = isStart
+        ? dateFromValue(start)
+        : dateFromValue(end);
+
+        const currentValue =
+        isDate && !isStart && !end.date
+            ? start.date
+            ? new Date(`${start.date}T12:00:00`)
+            : new Date()
+            : selectedValue;
+
+        DateTimePickerAndroid.open({
+        value: currentValue,
+        mode: isDate ? "date" : "time",
+        is24Hour: false,
+        minimumDate: isDate
+            ? target === "startDate"
+            ? today
+            : minEnd
+            : undefined,
+
+        onChange: (event, selected) => {
+            if (event.type !== "set" || !selected) {
+            return;
+            }
+
+            applyPickerValue(target, selected);
+        },
+        });
+
+        return;
     }
 
-    if (
-      event.type !== "set" ||
-      !selected ||
-      !picker
+    // iOS: Display the spinner within the form.
+
+    setPicker(target);
+    }
+
+  
+    function applyPickerValue(
+    target: PickerTarget,
+    selected: Date
     ) {
-      return;
+    if (target === "startDate") {
+        const date = localDate(selected);
+
+        setStart((previous) => ({
+        ...previous,
+        date,
+        }));
+
+        setEnd((previous) => ({
+        ...previous,
+        date,
+        }));
+
+        return;
     }
 
-    if (picker === "startDate") {
-      const date = localDate(selected);
+    if (target === "endDate") {
+        const date = localDate(selected);
 
-      setStart((previous) => ({
-        ...previous,
-        date,
-      }));
-
-      setEnd((previous) => ({
-        ...previous,
-        date,
-      }));
-    } else if (picker === "endDate") {
-      const date = localDate(selected);
-
-      if (date < (start.date || localDate())) {
+        if (date < (start.date || localDate())) {
         setError(
-          "End date cannot precede start date."
+            "End date cannot precede start date."
         );
         return;
-      }
+        }
 
-      setEnd((previous) => ({
+        setEnd((previous) => ({
         ...previous,
         date,
-      }));
-    } else if (picker === "startTime") {
-      setStart((previous) =>
-        updateTime(previous, selected)
-      );
-    } else {
-      setEnd((previous) =>
-        updateTime(previous, selected)
-      );
+        }));
+
+        return;
     }
-  }
+
+    if (target === "startTime") {
+        setStart((previous) =>
+        updateTime(previous, selected)
+        );
+
+        return;
+    }
+
+    if (target === "endTime") {
+        setEnd((previous) =>
+        updateTime(previous, selected)
+        );
+    }
+    }
+
+    function onPickerChange(
+    event: DateTimePickerEvent,
+    selected?: Date
+    ) {
+    if (
+        event.type !== "set" ||
+        !selected ||
+        !picker
+    ) {
+        return;
+    }
+
+    applyPickerValue(picker, selected);
+    }
+
 
   // --------------------------------------------------
   // Save Draft / Publish Event
@@ -655,7 +722,7 @@ export default function CreateEventScreen() {
             <Pressable
               style={styles.input}
               onPress={() =>
-                setPicker("startDate")
+                openPicker("startDate")
               }
             >
               <Text style={styles.inputText}>
@@ -672,7 +739,7 @@ export default function CreateEventScreen() {
             <Pressable
               style={styles.input}
               onPress={() =>
-                setPicker("endDate")
+                openPicker("endDate")
               }
             >
               <Text style={styles.inputText}>
@@ -693,7 +760,7 @@ export default function CreateEventScreen() {
             <Pressable
               style={styles.input}
               onPress={() =>
-                setPicker("startTime")
+                openPicker("startTime")
               }
             >
               <Text style={styles.inputText}>
@@ -710,7 +777,7 @@ export default function CreateEventScreen() {
             <Pressable
               style={styles.input}
               onPress={() =>
-                setPicker("endTime")
+                openPicker("endTime")
               }
             >
               <Text style={styles.inputText}>
