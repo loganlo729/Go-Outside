@@ -32,98 +32,103 @@ import type {
   EventRecord,
 } from "../../../src/types/event";
 
+// --------------------------------------------------
+// My Events Screen
+// --------------------------------------------------
+
 export default function MyEventsScreen() {
   const router = useRouter();
 
-  const [events, setEvents] =
-    useState<EventRecord[]>([]);
+  // --------------------------------------------------
+  // State
+  // --------------------------------------------------
 
+  const [events, setEvents] = useState<EventRecord[]>([]);
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
   const [error, setError] = useState("");
   const [signedIn, setSignedIn] = useState(false);
 
-  // -----------------------------------------
-  // Load events owned by current user
-  // -----------------------------------------
+  // --------------------------------------------------
+  // Load Events Owned by Current User
+  // --------------------------------------------------
 
-  const fetchMyEvents = useCallback(async (
-    isRefresh = false
-  ) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    setError("");
-
-    try {
-      // Get verified user from Supabase Auth
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError) {
-        throw authError;
+  const fetchMyEvents = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
 
-      if (!user) {
-        setSignedIn(false);
-        setEvents([]);
-        return;
+      setError("");
+
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) {
+          throw authError;
+        }
+
+        if (!user) {
+          setSignedIn(false);
+          setEvents([]);
+          return;
+        }
+
+        setSignedIn(true);
+
+        const userEvents = await getMyEvents(user.id);
+
+        setEvents(userEvents);
+      } catch (err) {
+        console.error(
+          "Error loading user events:",
+          err
+        );
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load your events."
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
+    },
+    []
+  );
 
-      setSignedIn(true);
-
-      const userEvents = await getMyEvents(user.id);
-
-      setEvents(userEvents);
-    } catch (err) {
-      console.error(
-        "Error loading user events:",
-        err
-      );
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load your events."
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  // Refresh whenever this screen receives focus.
-  // This also updates the screen after returning
-  // from a future event-creation/editing screen.
+  // --------------------------------------------------
+  // Refresh When Screen Receives Focus
+  // --------------------------------------------------
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-
       void fetchMyEvents();
 
-      return () => {
-        active = false;
-        // Reserved for cancelling future requests.
-      };
+      // Screen automatically reloads after returning
+      // from the Create Event screen.
     }, [fetchMyEvents])
   );
 
-  // -----------------------------------------
-  // Search
-  // -----------------------------------------
+  // --------------------------------------------------
+  // Filter Events by Search
+  // --------------------------------------------------
 
   const filteredEvents = events.filter((event) => {
     const query = search.trim().toLowerCase();
 
-    if (!query) return true;
+    if (!query) {
+      return true;
+    }
 
     return [
       event.eventTitle,
@@ -134,6 +139,10 @@ export default function MyEventsScreen() {
       (value ?? "").toLowerCase().includes(query)
     );
   });
+
+  // --------------------------------------------------
+  // Organize Events into Sections
+  // --------------------------------------------------
 
   const now = new Date();
 
@@ -163,9 +172,9 @@ export default function MyEventsScreen() {
       !pastEvents.includes(event)
   );
 
-  // -----------------------------------------
-  // Loading
-  // -----------------------------------------
+  // --------------------------------------------------
+  // Loading State
+  // --------------------------------------------------
 
   if (loading) {
     return (
@@ -182,9 +191,9 @@ export default function MyEventsScreen() {
     );
   }
 
-  // -----------------------------------------
-  // Main screen
-  // -----------------------------------------
+  // --------------------------------------------------
+  // Main Screen
+  // --------------------------------------------------
 
   return (
     <SafeAreaView style={styles.container}>
@@ -199,11 +208,13 @@ export default function MyEventsScreen() {
           />
         }
       >
+        {/* Header */}
+
         <Text style={styles.header}>
           Events
         </Text>
 
-        {/* Dashboard navigation */}
+        {/* Dashboard Navigation */}
 
         <View style={styles.tabs}>
           <Pressable
@@ -225,7 +236,9 @@ export default function MyEventsScreen() {
           </View>
         </View>
 
-        {/* Signed-out state */}
+        {/* ----------------------------------------
+            Signed-Out State
+        ---------------------------------------- */}
 
         {!signedIn && (
           <View style={styles.message}>
@@ -242,6 +255,7 @@ export default function MyEventsScreen() {
               onPress={() =>
                 router.push("/Login_Sign_Up/login")
               }
+              accessibilityRole="button"
             >
               <Text style={styles.buttonText}>
                 Log in
@@ -250,15 +264,38 @@ export default function MyEventsScreen() {
           </View>
         )}
 
-        {/* Signed-in content */}
+        {/* ----------------------------------------
+            Signed-In Content
+        ---------------------------------------- */}
 
         {signedIn && (
           <>
+            {/* Create Event Button */}
+
+            <View style={styles.createEventRow}>
+              <Pressable
+                style={styles.primaryButton}
+                onPress={() =>
+                  router.push("/events/create_event")
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Create a new event"
+              >
+                <Text style={styles.buttonText}>
+                  + Create Event
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Search */}
+
             <AppSearchInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search your events..."
             />
+
+            {/* Database Errors */}
 
             {!!error && (
               <View style={styles.message}>
@@ -268,6 +305,7 @@ export default function MyEventsScreen() {
 
                 <Pressable
                   onPress={() => fetchMyEvents()}
+                  accessibilityRole="button"
                 >
                   <Text style={styles.retryText}>
                     Retry
@@ -275,6 +313,8 @@ export default function MyEventsScreen() {
                 </Pressable>
               </View>
             )}
+
+            {/* Empty State */}
 
             {!error &&
               filteredEvents.length === 0 && (
@@ -290,6 +330,8 @@ export default function MyEventsScreen() {
                   </Text>
                 </View>
               )}
+
+            {/* Event Sections */}
 
             {!error && (
               <>
@@ -323,6 +365,10 @@ export default function MyEventsScreen() {
   );
 }
 
+// --------------------------------------------------
+// Styles
+// --------------------------------------------------
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -342,6 +388,8 @@ const styles = StyleSheet.create({
     color: theme.colors.secondaryText,
   },
 
+  // Header
+
   header: {
     fontSize: 28,
     fontWeight: "800",
@@ -350,6 +398,8 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 18,
   },
+
+  // Navigation Tabs
 
   tabs: {
     height: 52,
@@ -385,6 +435,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
+  // Create Event Button
+
+  createEventRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginHorizontal: 24,
+    marginTop: 20,
+    marginBottom: 16,
+  },
+
+  primaryButton: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 9,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    marginTop: 0,
+  },
+
+  buttonText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 14,
+    textAlign: "center",
+  },
+
+  // Messages
+
   message: {
     padding: 24,
     alignItems: "center",
@@ -416,19 +493,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  primaryButton: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 9,
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    marginTop: 20,
-  },
-
-  buttonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 14,
-  },
+  // Bottom Spacing
 
   bottom: {
     height: 35,

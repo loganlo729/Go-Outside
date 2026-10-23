@@ -1,21 +1,16 @@
 export type EventRecord = {
-  eventID: string;
-  userID: string;
+  eventID: string; userID: string; 
   categoryID: string | null;
-  eventTitle: string;
+  eventTitle: string | null; 
   eventDescription: string | null;
-  eventStartTime: string | null;
+  eventStartTime: string | null; 
   eventEndTime: string | null;
-  eventLocation: string | null;
+  eventLocation: string | null; 
   eventCost: number | null;
-  eventImageURL: string | null;
-  isFeatured: boolean;
+  eventImageURL: string | null; 
+  isFeatured: boolean; 
   status: string;
 };
 
-export type CategoryRecord = {
-  categoryID: string;
-  categoryName: string;
-};
-
-export type DateFilter = "all" | "twoWeeks" | "month";
+export type CategoryRecord = { categoryID: string; categoryName: string };
+export type DateFilter = 'all' | 'twoWeeks' | 'month';
