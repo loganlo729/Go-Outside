@@ -98,10 +98,45 @@ export async function getEventCategories() {
 }
 
 // Create an Event
-export async function createEvent(input: CreateEventInput) {
+
+// Event Image Configuration
+export const EVENT_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
+
+export const EVENT_IMAGE_ACCEPT =
+  "image/jpeg,image/png,image/webp";
+
+const EVENT_IMAGE_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+// Validate Selected Image
+export function validateEventImage(file: File): string | null {
+  if (!(file.type in EVENT_IMAGE_EXTENSIONS)) {
+    return "Please select a JPG, PNG, or WebP image.";
+  }
+
+  if (file.size > EVENT_IMAGE_MAX_SIZE) {
+    return "The image must be 5 MB or smaller.";
+  }
+
+  if (file.size === 0) {
+    return "The selected image is empty.";
+  }
+
+  return null;
+}
+
+// Create an Event with Optional Photo
+export async function createEvent(
+  input: CreateEventInput,
+  photo?: File | null
+) {
   const client = eventClient();
 
-  // Get the currently authenticated user.
+  // Get the authenticated user.
+
   const {
     data: { user },
     error: authError,
@@ -115,8 +150,59 @@ export async function createEvent(input: CreateEventInput) {
     throw new Error("You must be logged in to create an event.");
   }
 
-  // Insert the event into Supabase.
-  const { data, error } = await client
+  // Validate the photo before uploading.
+
+  if (photo) {
+    const validationError = validateEventImage(photo);
+
+    if (validationError) {
+      throw new Error(validationError);
+    }
+  }
+
+  // Uploaded image details.
+  // These remain null when saving without a photo.
+
+  let imageURL: string | null = null;
+  let uploadedPath: string | null = null;
+
+  // Upload Photo to Supabase Storage
+  if (photo) {
+    const extension = EVENT_IMAGE_EXTENSIONS[photo.type];
+
+    const fileName = `${crypto.randomUUID()}.${extension}`;
+
+    // Each user stores images in their own folder.
+
+    const storagePath = `${user.id}/${fileName}`;
+
+    const { data, error: uploadError } = await client.storage
+      .from("events")
+      .upload(storagePath, photo, {
+        cacheControl: "3600",
+        contentType: photo.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(
+        `Unable to upload event photo: ${uploadError.message}`
+      );
+    }
+
+    uploadedPath = data.path;
+
+    // Retrieve the public URL for the uploaded image.
+
+    const { data: publicURL } = client.storage
+      .from("events")
+      .getPublicUrl(data.path);
+
+    imageURL = publicURL.publicUrl;
+  }
+
+  // Create Event Database Record
+  const { data: event, error: insertError } = await client
     .from("Event")
     .insert({
       userID: user.id,
@@ -132,21 +218,40 @@ export async function createEvent(input: CreateEventInput) {
       eventCost: input.eventCost,
 
       isFeatured: input.isFeatured,
-      eventImageURL: null,
+
+      // Store the uploaded image URL.
+      eventImageURL: imageURL,
 
       status: input.status,
     })
     .select("eventID")
     .single();
 
-  if (error) {
-    console.error("Error creating event:", error);
+  // Handle Failed Database Insert
+  if (insertError) {
+    // If an image was uploaded but the Event insert failed, attempt to delete the unused image.
+
+    if (uploadedPath) {
+      const { error: cleanupError } = await client.storage
+        .from("events")
+        .remove([uploadedPath]);
+
+      if (cleanupError) {
+        console.error(
+          "Unable to clean up unused event image:",
+          cleanupError
+        );
+      }
+    }
+
+    console.error("Error creating event:", insertError);
 
     throw new Error(
-      `${error.message}${error.details ? ` — ${error.details}` : ""}`
+      `${insertError.message}${
+        insertError.details ? ` — ${insertError.details}` : ""
+      }`
     );
   }
 
-  return data;
+  return event;
 }
-

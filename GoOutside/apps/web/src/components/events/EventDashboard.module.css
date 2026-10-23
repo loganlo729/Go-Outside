@@ -313,3 +313,29 @@
   opacity: 0.6;
   cursor: wait;
 }
+
+
+
+
+/* --------------------------------------------------
+   Event Card Images - 16:9
+-------------------------------------------------- */
+
+.image,
+.imagePlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+
+  object-fit: cover;
+
+  background: #dfedea;
+  color: #31988f;
+
+  font-weight: 800;
+  letter-spacing: 2px;
+}

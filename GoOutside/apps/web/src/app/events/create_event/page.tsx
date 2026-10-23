@@ -1,7 +1,15 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import type { ChangeEvent } from "react";
+
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -9,11 +17,14 @@ import {
   createEvent,
   eventClient,
   getEventCategories,
+  EVENT_IMAGE_ACCEPT,
+  validateEventImage,
 } from "../../../services/events";
 
 import type { CategoryRecord } from "../../../types/event";
 
 import styles from "./CreateEvent.module.css";
+import AddressAutocomplete from "../../../components/events/AddressAutocomplete";
 
 // --------------------------------------------------
 // Types
@@ -31,6 +42,14 @@ type DateTimeInputProps = {
   value: EventDateTime;
   onChange: (value: EventDateTime) => void;
 };
+
+// --------------------------------------------------
+// Form Limits
+// --------------------------------------------------
+
+const MAX_TITLE_LENGTH = 150;
+const MAX_DESCRIPTION_LENGTH = 2000;
+const MAX_EVENT_COST = 9999.99;
 
 // --------------------------------------------------
 // Date and Time Options
@@ -52,6 +71,20 @@ const minutes = Array.from(
   { length: 60 },
   (_, index) => String(index).padStart(2, "0")
 );
+
+// --------------------------------------------------
+// Get Today's Local Date
+// --------------------------------------------------
+
+function getTodayLocal(): string {
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
 
 // --------------------------------------------------
 // Convert Local Date/Time to ISO
@@ -105,7 +138,8 @@ function EventDateField({
   label,
   value,
   onChange,
-}: DateTimeInputProps) {
+  minDate,
+}: DateTimeInputProps & { minDate: string }) {
   return (
     <div className={styles.field}>
       <label className={styles.label}>
@@ -116,6 +150,7 @@ function EventDateField({
           aria-label={label}
           className={styles.dateInput}
           value={value.date}
+          min={minDate}
           onChange={(event) =>
             onChange({
               ...value,
@@ -214,7 +249,9 @@ function EventTimeField({
 export default function CreateEventPage() {
   const router = useRouter();
 
-  // Event fields
+  // --------------------------------------------------
+  // Event Fields
+  // --------------------------------------------------
 
   const [title, setTitle] = useState("");
   const [categoryID, setCategoryID] = useState("");
@@ -232,9 +269,91 @@ export default function CreateEventPage() {
   const [cost, setCost] = useState("0");
   const [isFeatured, setIsFeatured] = useState(false);
 
-  // UI state
+  // --------------------------------------------------
+  // Automatically Populate End Date
+  // --------------------------------------------------
+
+  function handleStartDateChange(value: EventDateTime) {
+    setStartTime(value);
+
+    // Match the end date to the newly selected start date.
+    // Users can still edit the end date independently.
+
+    setEndTime((previous) => ({
+      ...previous,
+      date: value.date,
+    }));
+  }
+
+  // --------------------------------------------------
+  // Photo State
+  // --------------------------------------------------
+
+  const [photo, setPhoto] = useState<File | null>(null);
+
+  const [photoPreview, setPhotoPreview] = useState<string | null>(
+    null
+  );
+
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // Generate and clean up the temporary photo preview.
+
+  useEffect(() => {
+    if (!photo) {
+      setPhotoPreview(null);
+      return;
+    }
+
+    const previewURL = URL.createObjectURL(photo);
+
+    setPhotoPreview(previewURL);
+
+    return () => {
+      URL.revokeObjectURL(previewURL);
+    };
+  }, [photo]);
+
+  // --------------------------------------------------
+  // Handle Photo Selection
+  // --------------------------------------------------
+
+  function handlePhotoChange(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const validationError = validateEventImage(file);
+
+    if (validationError) {
+      setError(validationError);
+      event.target.value = "";
+      return;
+    }
+
+    setError("");
+    setPhoto(file);
+  }
+
+  function handleRemovePhoto() {
+    setPhoto(null);
+    setPhotoPreview(null);
+
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+  }
+
+  // --------------------------------------------------
+  // UI State
+  // --------------------------------------------------
 
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -315,29 +434,94 @@ export default function CreateEventPage() {
     const startISO = toISOString(startTime);
     const endISO = toISOString(endTime);
 
-    const parsedCost = cost.trim() === "" ? 0 : Number(cost);
+    const costText = cost.trim() === "" ? "0" : cost.trim();
+    const parsedCost = Number(costText);
 
-    // Cost validation
+    // --------------------------------------------------
+    // Cost Validation
+    // --------------------------------------------------
 
     if (
       !Number.isFinite(parsedCost) ||
       parsedCost < 0 ||
-      !/^\d+(\.\d{1,2})?$/.test(
-        cost.trim() === "" ? "0" : cost.trim()
-      ) ||
-      parsedCost > 9999999999.99
+      parsedCost > MAX_EVENT_COST ||
+      !/^\d+(\.\d{1,2})?$/.test(costText)
     ) {
       setError(
-        "Enter a valid cost of $0 or greater (up to two decimal places)."
+        "Event cost must be between $0 and $9,999.99, with a maximum of two decimal places."
       );
       return;
     }
 
-    // Title length validation
+    // --------------------------------------------------
+    // Title and Description Validation
+    // --------------------------------------------------
 
-    if (cleanTitle.length > 150) {
-      setError("Event title cannot exceed 150 characters.");
+    if (cleanTitle.length > MAX_TITLE_LENGTH) {
+      setError(
+        `Event title cannot exceed ${MAX_TITLE_LENGTH} characters.`
+      );
       return;
+    }
+
+    if (description.length > MAX_DESCRIPTION_LENGTH) {
+      setError(
+        `Event description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters.`
+      );
+      return;
+    }
+
+    // --------------------------------------------------
+    // Date Validation - Drafts and Published Events
+    // --------------------------------------------------
+
+    const today = getTodayLocal();
+
+    if (
+      (startTime.date && startTime.date < today) ||
+      (endTime.date && endTime.date < today)
+    ) {
+      setError("Event dates cannot be in the past.");
+      return;
+    }
+
+    if (
+      startTime.date &&
+      endTime.date &&
+      endTime.date < startTime.date
+    ) {
+      setError("The end date cannot be earlier than the start date.");
+      return;
+    }
+
+    if (
+      (startTime.date && !startISO) ||
+      (endTime.date && !endISO)
+    ) {
+      setError("Please enter valid event dates and times.");
+      return;
+    }
+
+    if (
+      startISO &&
+      endISO &&
+      new Date(endISO) <= new Date(startISO)
+    ) {
+      setError("The event must end after its start time.");
+      return;
+    }
+
+    // --------------------------------------------------
+    // Photo Validation
+    // --------------------------------------------------
+
+    if (photo) {
+      const photoError = validateEventImage(photo);
+
+      if (photoError) {
+        setError(photoError);
+        return;
+      }
     }
 
     // --------------------------------------------------
@@ -390,29 +574,37 @@ export default function CreateEventPage() {
         setError("Event cost is required. Enter 0 for free.");
         return;
       }
+
+      if (!photo) {
+        setError("Please upload an event photo before publishing.");
+        return;
+      }
     }
 
     // --------------------------------------------------
-    // Save to Supabase
+    // Save Event and Photo to Supabase
     // --------------------------------------------------
 
     setSaving(true);
 
     try {
-      await createEvent({
-        eventTitle: cleanTitle || null,
-        categoryID: categoryID || null,
-        eventDescription: cleanDescription || null,
+      await createEvent(
+        {
+          eventTitle: cleanTitle || null,
+          categoryID: categoryID || null,
+          eventDescription: cleanDescription || null,
 
-        eventStartTime: startISO,
-        eventEndTime: endISO,
+          eventStartTime: startISO,
+          eventEndTime: endISO,
 
-        eventLocation: cleanLocation || null,
-        eventCost: parsedCost,
+          eventLocation: cleanLocation || null,
+          eventCost: parsedCost,
 
-        isFeatured,
-        status: action,
-      });
+          isFeatured,
+          status: action,
+        },
+        photo
+      );
 
       router.push("/events/my_events");
       router.refresh();
@@ -531,7 +723,7 @@ export default function CreateEventPage() {
               type="text"
               className={styles.input}
               value={title}
-              maxLength={150}
+              maxLength={MAX_TITLE_LENGTH}
               placeholder="Enter event title"
               onChange={(event) =>
                 setTitle(event.target.value)
@@ -539,7 +731,7 @@ export default function CreateEventPage() {
             />
 
             <p className={styles.helpText}>
-              {title.length}/150 characters
+              {title.length}/{MAX_TITLE_LENGTH} characters
             </p>
           </div>
 
@@ -595,7 +787,7 @@ export default function CreateEventPage() {
               )}
             </div>
 
-            {/* Cost */}
+            {/* Event Cost */}
 
             <div className={styles.field}>
               <label
@@ -614,6 +806,7 @@ export default function CreateEventPage() {
                   id="eventCost"
                   type="number"
                   min="0"
+                  max={MAX_EVENT_COST}
                   step="0.01"
                   className={styles.costInput}
                   value={cost}
@@ -624,7 +817,7 @@ export default function CreateEventPage() {
               </div>
 
               <p className={styles.helpText}>
-                Enter 0 for a free event.
+                Enter 0 for a free event. Maximum: $9,999.99.
               </p>
             </div>
           </div>
@@ -645,12 +838,17 @@ export default function CreateEventPage() {
               id="eventDescription"
               className={styles.textarea}
               value={description}
+              maxLength={MAX_DESCRIPTION_LENGTH}
               placeholder="Describe your event..."
               rows={6}
               onChange={(event) =>
                 setDescription(event.target.value)
               }
             />
+
+            <p className={styles.helpText}>
+              {description.length}/{MAX_DESCRIPTION_LENGTH} characters
+            </p>
           </div>
 
           {/* ----------------------------------------
@@ -661,13 +859,20 @@ export default function CreateEventPage() {
             <EventDateField
               label="Event Start Date"
               value={startTime}
-              onChange={setStartTime}
+              onChange={handleStartDateChange}
+              minDate={getTodayLocal()}
             />
 
             <EventDateField
               label="Event End Date"
               value={endTime}
               onChange={setEndTime}
+              minDate={
+                startTime.date &&
+                startTime.date > getTodayLocal()
+                  ? startTime.date
+                  : getTodayLocal()
+              }
             />
           </div>
 
@@ -689,6 +894,7 @@ export default function CreateEventPage() {
             />
           </div>
 
+          
           {/* ----------------------------------------
               Row 6: Location / Featured Post
           ---------------------------------------- */}
@@ -704,19 +910,14 @@ export default function CreateEventPage() {
                 Event Location
               </label>
 
-              <input
-                id="eventLocation"
-                type="text"
-                className={styles.input}
+              <AddressAutocomplete
                 value={location}
-                placeholder="Enter location or address"
-                onChange={(event) =>
-                  setLocation(event.target.value)
-                }
+                onChange={setLocation}
+                disabled={saving}
               />
             </div>
 
-            {/* Featured Post - aligned with Location */}
+            {/* Featured Post */}
 
             <div className={styles.field}>
               <span className={styles.label}>
@@ -749,39 +950,110 @@ export default function CreateEventPage() {
             </div>
           </div>
 
+
           {/* ----------------------------------------
-              Row 7: Event Photo
+              Row 7: Event Photo Upload
           ---------------------------------------- */}
 
           <div className={styles.field}>
-            <span className={styles.label}>
+            <label
+              htmlFor="eventPhoto"
+              className={styles.label}
+            >
               Event Photo
-            </span>
+            </label>
 
             <div className={styles.uploadBox}>
-              <div className={styles.uploadIcon}>
-                +
-              </div>
+              {photo && photoPreview ? (
+                <>
+                  {/* Selected Image Preview */}
 
-              <strong>
-                Photo Upload
-              </strong>
+                  <img
+                    src={photoPreview}
+                    alt="Selected event photo preview"
+                    className={styles.photoPreview}
+                  />
 
-              <p className={styles.helpText}>
-                Event image uploads are coming soon.
-              </p>
+                  {/* Image Details */}
 
-              <button
-                type="button"
-                disabled
-                className={styles.secondaryButton}
-              >
-                Choose Photo
-              </button>
+                  <div className={styles.photoDetails}>
+                    <strong>
+                      {photo.name}
+                    </strong>
+
+                    <p className={styles.helpText}>
+                      {(photo.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                  </div>
+
+                  {/* Change / Remove Photo */}
+
+                  <div className={styles.photoActions}>
+                    <label
+                      htmlFor="eventPhoto"
+                      className={styles.changePhotoButton}
+                      aria-disabled={saving}
+                    >
+                      Change Photo
+                    </label>
+
+                    <button
+                      type="button"
+                      className={styles.removePhotoButton}
+                      disabled={saving}
+                      onClick={handleRemovePhoto}
+                    >
+                      Remove Photo
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Empty Upload State */}
+
+                  <div className={styles.uploadIcon}>
+                    +
+                  </div>
+
+                  <strong>
+                    Upload an Event Photo
+                  </strong>
+
+                  <p className={styles.helpText}>
+                    JPG, PNG, or WebP. Maximum file size: 5 MB.
+                  </p>
+
+                  <label
+                    htmlFor="eventPhoto"
+                    className={styles.changePhotoButton}
+                    aria-disabled={saving}
+                  >
+                    Choose Photo
+                  </label>
+                </>
+              )}
+
+              {/* File Input */}
+
+              <input
+                ref={photoInputRef}
+                id="eventPhoto"
+                type="file"
+                accept={EVENT_IMAGE_ACCEPT}
+                className={styles.hiddenFileInput}
+                onChange={handlePhotoChange}
+                onClick={(event) => {
+                  // Allow selecting the same file again.
+                  event.currentTarget.value = "";
+                }}
+                disabled={saving}
+              />
             </div>
           </div>
 
-          {/* Error Message */}
+          {/* ----------------------------------------
+              Error Message
+          ---------------------------------------- */}
 
           {error && (
             <p
