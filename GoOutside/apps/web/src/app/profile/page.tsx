@@ -302,8 +302,7 @@ export default function ProfilePage() {
             <button
               type="button"
               className="account-btn outline"
-              disabled
-              title="Cover uploads are not configured yet"
+              title="Upload a new cover image"
             >
               Change Cover
             </button>
@@ -311,8 +310,7 @@ export default function ProfilePage() {
             <button
               type="button"
               className="account-btn outline"
-              disabled
-              title="Avatar uploads are not configured yet"
+              title="Upload a new avatar image"
             >
               Edit Avatar
             </button>
@@ -533,7 +531,7 @@ export default function ProfilePage() {
             <div className="account-security-row">
               <div>
                 <p>
-                   
+                  <strong>Sign Out</strong>
                 </p>
               </div>
 
