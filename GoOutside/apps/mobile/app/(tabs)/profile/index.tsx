@@ -1,5 +1,5 @@
 import { Redirect } from "expo-router";
 
-export default function EventsIndex() {
-  return <Redirect href="/profile/profile" />;
+export default function ProfileIndex() {
+  return <Redirect href="/profile/profile_settings" />;
 }

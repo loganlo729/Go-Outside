@@ -44,33 +44,59 @@ export default function ProfilePage() {
 
     async function loadUser() {
       try {
-        const { data, error } = await supabase.auth.getUser();
+        // First, independently verify authentication.
+        const { data, error: authError } =
+          await supabase.auth.getUser();
 
         if (!mounted) return;
-        if (error) throw error;
+
+        if (authError || !data.user) {
+          setUser(null);
+          return;
+        }
 
         const currentUser = data.user;
+
+        // Authentication is successful.
         setUser(currentUser);
 
-        if (currentUser) {
-          const profile = {
-            fullName:
-              currentUser.user_metadata?.full_name ?? "",
-            email: currentUser.email ?? "",
-            phone: currentUser.user_metadata?.phone ?? "",
-            location:
-              currentUser.user_metadata?.location ?? "",
-          };
+        // Set defaults using authenticated user information.
+        const profile = {
+          fullName: "",
+          email: currentUser.email ?? "",
+          phone: currentUser.user_metadata?.phone ?? "",
+          location: currentUser.user_metadata?.location ?? "",
+        };
 
-          setFullName(profile.fullName);
-          setEmail(profile.email);
-          setPhone(profile.phone);
-          setLocation(profile.location);
-          setOriginal(profile);
+        // Fetch display name separately.
+        const { data: profileData, error: profileError } =
+          await supabase
+            .from("Profile")
+            .select("displayName")
+            .eq("userID", currentUser.id)
+            .maybeSingle();
+
+        if (!mounted) return;
+
+        if (profileError) {
+          console.error(
+            "Profile lookup failed:",
+            profileError
+          );
+          setError("Unable to load your display name.");
+        } else {
+          profile.fullName = profileData?.displayName ?? "";
         }
-      } catch {
+
+        setFullName(profile.fullName);
+        setEmail(profile.email);
+        setPhone(profile.phone);
+        setLocation(profile.location);
+        setOriginal(profile);
+      } catch (err) {
+        console.error("Account loading error:", err);
+
         if (mounted) {
-          setUser(null);
           setError("Unable to load your account.");
         }
       } finally {
@@ -104,33 +130,46 @@ export default function ProfilePage() {
     try {
       const supabase = getSupabaseClient();
 
-      const changes: {
-        email?: string;
-        data: Record<string, string>;
-      } = {
-        data: {
-          full_name: fullName.trim(),
-          phone: phone.trim(),
-          location: location.trim(),
-        },
-      };
+      const newDisplayName = fullName.trim();
 
-      if (email.trim() !== user.email) {
-        changes.email = email.trim();
+      if (!newDisplayName) {
+        throw new Error("Display name cannot be empty.");
       }
 
-      const { data, error } =
-        await supabase.auth.updateUser(changes);
+      // Update the Profile table
+      const { data: updatedProfile, error: profileError } =
+        await supabase
+          .from("Profile")
+          .update({
+            displayName: newDisplayName,
+          })
+          .eq("userID", user.id)
+          .select("displayName")
+          .single();
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // Update remaining fields in Supabase Auth
+      const emailChanged = email.trim() !== user.email;
+
+      const { data, error: authError } =
+        await supabase.auth.updateUser({
+          ...(emailChanged
+            ? { email: email.trim() }
+            : {}),
+          data: {
+            phone: phone.trim(),
+            location: location.trim(),
+          },
+        });
+
+      if (authError) throw authError;
 
       if (data.user) setUser(data.user);
 
       const saved = {
-        fullName: fullName.trim(),
-        email:
-          data.user?.email ??
-          original.email,
+        fullName: updatedProfile.displayName,
+        email: data.user?.email ?? user.email ?? "",
         phone: phone.trim(),
         location: location.trim(),
       };
@@ -141,8 +180,8 @@ export default function ProfilePage() {
       setLocation(saved.location);
 
       setSuccess(
-        changes.email
-          ? "Profile saved. Check your email to confirm the address change."
+        emailChanged
+          ? "Profile updated. Check your email to confirm the address change."
           : "Profile changes saved successfully."
       );
     } catch (err) {
@@ -223,7 +262,7 @@ export default function ProfilePage() {
 
   const initials = displayName
     .split(" ")
-    .map((part) => part[0])
+    .map((part: string) => part[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
@@ -332,7 +371,7 @@ export default function ProfilePage() {
             <div className="account-form">
               <label>
                 <span>
-                  Full Name <strong>*</strong>
+                  Display Name <strong>*</strong>
                 </span>
                 <input
                   type="text"
@@ -340,7 +379,7 @@ export default function ProfilePage() {
                   onChange={(event) =>
                     setFullName(event.target.value)
                   }
-                  placeholder="Your full name"
+                  placeholder="Your display name"
                 />
               </label>
 
