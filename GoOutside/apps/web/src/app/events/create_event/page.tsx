@@ -801,18 +801,21 @@ export default function CreateEventPage() {
                 <span className={styles.costSymbol}>
                   $
                 </span>
-
                 <input
                   id="eventCost"
-                  type="number"
-                  min="0"
-                  max={MAX_EVENT_COST}
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   className={styles.costInput}
                   value={cost}
-                  onChange={(event) =>
-                    setCost(event.target.value)
-                  }
+                  placeholder="0.00"
+                  maxLength={10}
+                  onChange={(event) => {
+                    const value = event.target.value;
+
+                    if (/^\d*(\.\d{0,2})?$/.test(value)) {
+                      setCost(value);
+                    }
+                  }}
                 />
               </div>
 
