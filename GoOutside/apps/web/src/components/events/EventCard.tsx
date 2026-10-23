@@ -8,6 +8,27 @@ import {
 
 import styles from "./EventDashboard.module.css";
 
+// --------------------------------------------------
+// Title Formatting
+// --------------------------------------------------
+
+function formatEventTitle(
+  title: string | null,
+  maxLength = 22
+): string {
+  if (!title) {
+    return "Untitled Event";
+  }
+
+  return title.length > maxLength
+    ? `${title.slice(0, maxLength)}...`
+    : title;
+}
+
+// --------------------------------------------------
+// Event Card
+// --------------------------------------------------
+
 export default function EventCard({
   event,
 }: {
@@ -21,7 +42,8 @@ export default function EventCard({
         <img
           className={styles.image}
           src={event.eventImageURL}
-          alt=""
+          alt={event.eventTitle ?? "Event photo"}
+          loading="lazy"
         />
       ) : (
         <div className={styles.imagePlaceholder}>
@@ -32,19 +54,28 @@ export default function EventCard({
       {/* Event Information */}
 
       <div className={styles.cardBody}>
+        {/* Date */}
+
         <p className={styles.date}>
           {formatEventDate(event.eventStartTime)}
         </p>
 
-        <h3 className={styles.cardTitle}>
-          {event.eventTitle}
+        {/* Title */}
+
+        <h3
+          className={styles.cardTitle}
+          title={event.eventTitle ?? "Untitled Event"}
+        >
+          {formatEventTitle(event.eventTitle)}
         </h3>
+
+        {/* Location */}
 
         <p className={styles.location}>
           ⌖ {event.eventLocation || "Location TBD"}
         </p>
 
-        {/* Event Footer */}
+        {/* Cost and Featured Badge */}
 
         <div className={styles.cardFooter}>
           <strong>
@@ -61,3 +92,4 @@ export default function EventCard({
     </article>
   );
 }
+

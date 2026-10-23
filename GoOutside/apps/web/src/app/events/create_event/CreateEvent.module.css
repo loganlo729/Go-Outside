@@ -598,3 +598,98 @@
   }
 }
 
+
+
+/* --------------------------------------------------
+   Functional Event Photo Upload
+-------------------------------------------------- */
+
+.hiddenFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.photoPreview {
+  display: block;
+
+  width: 100%;
+  max-height: 350px;
+
+  object-fit: contain;
+
+  background: #eef1ea;
+  border-radius: 14px;
+}
+
+.photoDetails {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.photoDetails strong {
+  color: #1f2e22;
+  font-size: 14px;
+}
+
+.photoActions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.changePhotoButton,
+.removePhotoButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 44px;
+  padding: 10px 18px;
+
+  border-radius: 12px;
+
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.changePhotoButton {
+  background: #3f6d3f;
+  border: 1px solid #3f6d3f;
+  color: #ffffff;
+}
+
+.changePhotoButton:hover {
+  background: #315832;
+}
+
+.removePhotoButton {
+  background: #ffffff;
+  border: 1px solid #cfd6cb;
+  color: #b42318;
+}
+
+.removePhotoButton:hover {
+  background: #fff0f0;
+}
+
+.hiddenFileInput:focus-visible ~ .changePhotoButton {
+  outline: 2px solid #3f6d3f;
+  outline-offset: 3px;
+}
+
