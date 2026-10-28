@@ -6,17 +6,25 @@ import type {
   EventRecord,
 } from "../types/event";
 
+// --------------------------------------------------
 // Event Query Fields
+// --------------------------------------------------
+
 const fields =
   "eventID,userID,categoryID,eventTitle,eventDescription,eventStartTime,eventEndTime,eventLocation,eventCost,eventImageURL,isFeatured,status";
 
+// --------------------------------------------------
 // Supabase Client
+// --------------------------------------------------
+
 export function eventClient() {
   return getSupabaseClient();
 }
 
-
+// --------------------------------------------------
 // Fetch Upcoming Public Events and Categories
+// --------------------------------------------------
+
 export async function getUpcomingEventsAndCategories(): Promise<{
   events: EventRecord[];
   categories: CategoryRecord[];
@@ -29,15 +37,18 @@ export async function getUpcomingEventsAndCategories(): Promise<{
       .select(fields)
       .eq("status", "publicActive")
       .gte("eventStartTime", new Date().toISOString())
-      .order("eventStartTime", { ascending: true }),
+      .order("eventStartTime", {
+        ascending: true,
+      }),
 
     client
       .from("Category")
       .select("categoryID,categoryName")
-      .order("categoryName", { ascending: true }),
+      .order("categoryName", {
+        ascending: true,
+      }),
   ]);
 
-  // Check for query errors
   if (eventsResult.error) {
     throw eventsResult.error;
   }
@@ -52,7 +63,10 @@ export async function getUpcomingEventsAndCategories(): Promise<{
   };
 }
 
+// --------------------------------------------------
 // Fetch Events Created by the Current User
+// --------------------------------------------------
+
 export async function getMyEvents(
   userID: string
 ): Promise<EventRecord[]> {
@@ -60,7 +74,9 @@ export async function getMyEvents(
     .from("Event")
     .select(fields)
     .eq("userID", userID)
-    .order("eventStartTime", { ascending: false });
+    .order("eventStartTime", {
+      ascending: false,
+    });
 
   if (error) {
     throw error;
@@ -69,8 +85,10 @@ export async function getMyEvents(
   return (data ?? []) as unknown as EventRecord[];
 }
 
-
+// --------------------------------------------------
 // Create Event Types
+// --------------------------------------------------
+
 export interface CreateEventInput {
   eventTitle: string | null;
   categoryID: string | null;
@@ -83,12 +101,19 @@ export interface CreateEventInput {
   status: "drafted" | "publicActive";
 }
 
+// --------------------------------------------------
 // Fetch Available Categories
-export async function getEventCategories() {
+// --------------------------------------------------
+
+export async function getEventCategories(): Promise<
+  CategoryRecord[]
+> {
   const { data, error } = await eventClient()
     .from("Category")
-    .select("categoryID, categoryName")
-    .order("categoryName", { ascending: true });
+    .select("categoryID,categoryName")
+    .order("categoryName", {
+      ascending: true,
+    });
 
   if (error) {
     throw error;
@@ -97,9 +122,10 @@ export async function getEventCategories() {
   return (data ?? []) as CategoryRecord[];
 }
 
-// Create an Event
-
+// --------------------------------------------------
 // Event Image Configuration
+// --------------------------------------------------
+
 export const EVENT_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
 
 export const EVENT_IMAGE_ACCEPT =
@@ -111,8 +137,13 @@ const EVENT_IMAGE_EXTENSIONS: Record<string, string> = {
   "image/webp": "webp",
 };
 
+// --------------------------------------------------
 // Validate Selected Image
-export function validateEventImage(file: File): string | null {
+// --------------------------------------------------
+
+export function validateEventImage(
+  file: File
+): string | null {
   if (!(file.type in EVENT_IMAGE_EXTENSIONS)) {
     return "Please select a JPG, PNG, or WebP image.";
   }
@@ -128,14 +159,19 @@ export function validateEventImage(file: File): string | null {
   return null;
 }
 
-// Create an Event with Optional Photo
+// --------------------------------------------------
+// Create Event with Optional Photo
+// --------------------------------------------------
+
 export async function createEvent(
   input: CreateEventInput,
   photo?: File | null
 ) {
   const client = eventClient();
 
-  // Get the authenticated user.
+  // ----------------------------------------
+  // Verify Authenticated User
+  // ----------------------------------------
 
   const {
     data: { user },
@@ -147,10 +183,14 @@ export async function createEvent(
   }
 
   if (!user) {
-    throw new Error("You must be logged in to create an event.");
+    throw new Error(
+      "You must be logged in to create an event."
+    );
   }
 
-  // Validate the photo before uploading.
+  // ----------------------------------------
+  // Validate Photo
+  // ----------------------------------------
 
   if (photo) {
     const validationError = validateEventImage(photo);
@@ -160,19 +200,17 @@ export async function createEvent(
     }
   }
 
-  // Uploaded image details.
-  // These remain null when saving without a photo.
-
   let imageURL: string | null = null;
   let uploadedPath: string | null = null;
 
+  // ----------------------------------------
   // Upload Photo to Supabase Storage
+  // ----------------------------------------
+
   if (photo) {
     const extension = EVENT_IMAGE_EXTENSIONS[photo.type];
 
     const fileName = `${crypto.randomUUID()}.${extension}`;
-
-    // Each user stores images in their own folder.
 
     const storagePath = `${user.id}/${fileName}`;
 
@@ -192,7 +230,7 @@ export async function createEvent(
 
     uploadedPath = data.path;
 
-    // Retrieve the public URL for the uploaded image.
+    // Retrieve Public Image URL
 
     const { data: publicURL } = client.storage
       .from("events")
@@ -201,7 +239,10 @@ export async function createEvent(
     imageURL = publicURL.publicUrl;
   }
 
-  // Create Event Database Record
+  // ----------------------------------------
+  // Insert Event into Database
+  // ----------------------------------------
+
   const { data: event, error: insertError } = await client
     .from("Event")
     .insert({
@@ -218,8 +259,6 @@ export async function createEvent(
       eventCost: input.eventCost,
 
       isFeatured: input.isFeatured,
-
-      // Store the uploaded image URL.
       eventImageURL: imageURL,
 
       status: input.status,
@@ -227,10 +266,11 @@ export async function createEvent(
     .select("eventID")
     .single();
 
-  // Handle Failed Database Insert
-  if (insertError) {
-    // If an image was uploaded but the Event insert failed, attempt to delete the unused image.
+  // ----------------------------------------
+  // Clean Up Image if Event Insert Fails
+  // ----------------------------------------
 
+  if (insertError) {
     if (uploadedPath) {
       const { error: cleanupError } = await client.storage
         .from("events")
@@ -248,10 +288,92 @@ export async function createEvent(
 
     throw new Error(
       `${insertError.message}${
-        insertError.details ? ` — ${insertError.details}` : ""
+        insertError.details
+          ? ` — ${insertError.details}`
+          : ""
       }`
     );
   }
 
   return event;
 }
+
+// ==================================================
+// RSVP FUNCTIONALITY
+// ==================================================
+
+// --------------------------------------------------
+// Get Current User's RSVP Status
+// --------------------------------------------------
+
+export async function getEventRSVP(
+  eventID: string,
+  userID: string
+): Promise<boolean> {
+  const { data, error } = await eventClient()
+    .from("RSVP")
+    .select("rsvpStatus")
+    .eq("eventID", eventID)
+    .eq("userID", userID)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.rsvpStatus === "going";
+}
+
+// --------------------------------------------------
+// RSVP to an Event
+// --------------------------------------------------
+
+export async function addEventRSVP(
+  eventID: string,
+  userID: string
+): Promise<void> {
+  const { error } = await eventClient()
+    .from("RSVP")
+    .upsert(
+      {
+        userID,
+        eventID,
+        rsvpStatus: "going",
+      },
+      {
+        onConflict: "userID,eventID",
+      }
+    );
+
+  if (error) {
+    throw error;
+  }
+}
+
+
+
+// --------------------------------------------------
+// Cancel RSVP - Delete Record from Database
+// --------------------------------------------------
+export async function removeEventRSVP(
+  eventID: string,
+  userID: string
+): Promise<void> {
+  const { data, error } = await eventClient()
+    .from("RSVP")
+    .delete()
+    .eq("eventID", eventID)
+    .eq("userID", userID)
+    .select("rsvpID");
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error(
+      "RSVP could not be deleted. Check your database permissions."
+    );
+  }
+}
+

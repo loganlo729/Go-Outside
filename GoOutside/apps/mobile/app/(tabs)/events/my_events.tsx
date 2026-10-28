@@ -1,6 +1,7 @@
 
 import React, {
   useCallback,
+  useEffect,
   useState,
 } from "react";
 
@@ -26,7 +27,11 @@ import AppSearchInput from "../../../src/components/ui/AppSearchInput";
 import EventSection from "../../../src/components/events/EventSection";
 
 import { theme } from "../../../src/constants/theme";
-import { getMyEvents } from "../../../src/services/events";
+import {
+  getMyEvents,
+  getMyUpcomingRSVPEvents,
+  subscribeToRSVPChanges, 
+} from "../../../src/services/events";
 
 import type {
   EventRecord,
@@ -44,6 +49,9 @@ export default function MyEventsScreen() {
   // --------------------------------------------------
 
   const [events, setEvents] = useState<EventRecord[]>([]);
+  const [rsvpEvents, setRSVPEvents] = useState<EventRecord[]>([]);
+  const [currentUserID, setCurrentUserID] = useState<string | null>(null);
+
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -75,18 +83,32 @@ export default function MyEventsScreen() {
         if (authError) {
           throw authError;
         }
-
+        
         if (!user) {
           setSignedIn(false);
+          setCurrentUserID(null);
+
           setEvents([]);
+          setRSVPEvents([]);
+
           return;
         }
 
         setSignedIn(true);
+        setCurrentUserID(user.id);
 
-        const userEvents = await getMyEvents(user.id);
+        // Fetch created events and RSVP'd events separately.
 
-        setEvents(userEvents);
+        const [createdEvents, attendingEvents] =
+          await Promise.all([
+            getMyEvents(user.id),
+            getMyUpcomingRSVPEvents(user.id),
+          ]);
+
+        setEvents(createdEvents);
+        setRSVPEvents(attendingEvents);
+
+        
       } catch (err) {
         console.error(
           "Error loading user events:",
@@ -119,13 +141,70 @@ export default function MyEventsScreen() {
     }, [fetchMyEvents])
   );
 
+  
+  // --------------------------------------------------
+  // Update Upcoming Events When RSVP Changes
+  // --------------------------------------------------
+
+  useEffect(() => {
+    if (!currentUserID) {
+      return;
+    }
+
+    let active = true;
+
+    const unsubscribe = subscribeToRSVPChanges(
+      (eventID, userID, going) => {
+        if (userID !== currentUserID) {
+          return;
+        }
+
+        if (!going) {
+          // Remove the event immediately when
+          // the user cancels their RSVP.
+
+          setRSVPEvents((previous) =>
+            previous.filter(
+              (event) => event.eventID !== eventID
+            )
+          );
+
+          return;
+        }
+
+        // Reload upcoming RSVP events when
+        // the user RSVPs to a new event.
+
+        void getMyUpcomingRSVPEvents(currentUserID)
+          .then((result) => {
+            if (active) {
+              setRSVPEvents(result);
+            }
+          })
+          .catch((error) => {
+            console.error(
+              "Unable to refresh RSVP events:",
+              error
+            );
+          });
+      }
+    );
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [currentUserID]);
+
+
+  
   // --------------------------------------------------
   // Filter Events by Search
   // --------------------------------------------------
 
-  const filteredEvents = events.filter((event) => {
-    const query = search.trim().toLowerCase();
+  const query = search.trim().toLowerCase();
 
+  function matchesSearch(event: EventRecord): boolean {
     if (!query) {
       return true;
     }
@@ -138,7 +217,17 @@ export default function MyEventsScreen() {
     ].some((value) =>
       (value ?? "").toLowerCase().includes(query)
     );
-  });
+  }
+
+  // Events created by the current user.
+
+  const filteredEvents = events.filter(matchesSearch);
+
+  // Events the current user RSVP'd to.
+
+  const filteredRSVPEvents =
+    rsvpEvents.filter(matchesSearch);
+
 
   // --------------------------------------------------
   // Organize Events into Sections
@@ -146,18 +235,29 @@ export default function MyEventsScreen() {
 
   const now = new Date();
 
-  const upcomingEvents = filteredEvents.filter(
+  // Upcoming events that the user is RSVP'd to
+  const upcomingEvents = filteredRSVPEvents.filter(
     (event) =>
       event.status === "publicActive" &&
       !!event.eventStartTime &&
       new Date(event.eventStartTime) >= now
   );
 
+  // Active events created by the user
+  const activeEvents = filteredEvents.filter(
+    (event) =>
+      event.status === "publicActive" &&
+      !!event.eventStartTime &&
+      new Date(event.eventStartTime) >= now
+  );
+
+  // Drafted events created by the user
   const draftEvents = filteredEvents.filter(
     (event) =>
       event.status.toLowerCase().includes("draft")
   );
 
+  // Past events created by the user
   const pastEvents = filteredEvents.filter(
     (event) =>
       event.status === "publicActive" &&
@@ -167,7 +267,7 @@ export default function MyEventsScreen() {
 
   const otherEvents = filteredEvents.filter(
     (event) =>
-      !upcomingEvents.includes(event) &&
+      !activeEvents.includes(event) &&
       !draftEvents.includes(event) &&
       !pastEvents.includes(event)
   );
@@ -270,30 +370,36 @@ export default function MyEventsScreen() {
 
         {signedIn && (
           <>
-            {/* Create Event Button */}
+            {/* Search Bar and Create Event Button */}
+              <View style={styles.searchAndCreateRow}>
+                {/* Search Bar - Left */}
 
-            <View style={styles.createEventRow}>
-              <Pressable
-                style={styles.primaryButton}
-                onPress={() =>
-                  router.push("/events/create_event")
-                }
-                accessibilityRole="button"
-                accessibilityLabel="Create a new event"
-              >
-                <Text style={styles.buttonText}>
-                  + Create Event
-                </Text>
-              </Pressable>
-            </View>
+                <View style={styles.searchWrapper}>
+                  <AppSearchInput
+                    value={search}
+                    onChangeText={setSearch}
+                    placeholder="Search your events..."
+                  />
+                </View>
 
-            {/* Search */}
-
-            <AppSearchInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search your events..."
-            />
+                {/* Create Event Button - Right */}
+                <Pressable
+                  style={[
+                    styles.primaryButton,
+                    styles.createEventButton,
+                  ]}
+                  onPress={() =>
+                    router.push("/events/create_event")
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel="Create a new event"
+                >
+                  <Text style={styles.buttonText}>
+                    + Create Event
+                  </Text>
+                </Pressable>
+              </View>
+            
 
             {/* Database Errors */}
 
@@ -317,14 +423,15 @@ export default function MyEventsScreen() {
             {/* Empty State */}
 
             {!error &&
-              filteredEvents.length === 0 && (
+              filteredEvents.length === 0 && 
+              filteredRSVPEvents.length === 0 && (
                 <View style={styles.message}>
                   <Text style={styles.emptyTitle}>
                     No events found
                   </Text>
 
                   <Text style={styles.emptyText}>
-                    {events.length === 0
+                    {events.length === 0 && rsvpEvents.length === 0
                       ? "You haven't created any events yet."
                       : "Try another search."}
                   </Text>
@@ -341,12 +448,17 @@ export default function MyEventsScreen() {
                 />
 
                 <EventSection
-                  title="Drafts"
+                  title="Your Active Events"
+                  data={activeEvents}
+                />
+
+                <EventSection
+                  title="Your Drafts"
                   data={draftEvents}
                 />
 
                 <EventSection
-                  title="Past Events"
+                  title="Your Past Events"
                   data={pastEvents}
                 />
 
@@ -461,7 +573,6 @@ const styles = StyleSheet.create({
   },
 
   // Messages
-
   message: {
     padding: 24,
     alignItems: "center",
@@ -494,8 +605,32 @@ const styles = StyleSheet.create({
   },
 
   // Bottom Spacing
-
   bottom: {
     height: 35,
   },
+  
+  // --------------------------------------------------
+  // Search and Create Event Row
+  // --------------------------------------------------
+
+  searchAndCreateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 24,
+    marginTop: 20,
+    marginBottom: 16,
+    gap: 10,
+  },
+
+  searchWrapper: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  createEventButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexShrink: 0,
+  },
+
 });

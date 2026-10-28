@@ -339,3 +339,80 @@
   font-weight: 800;
   letter-spacing: 2px;
 }
+
+
+
+
+
+/* --------------------------------------------------
+   RSVP Actions
+-------------------------------------------------- */
+
+.rsvpActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* RSVP - Not Attending */
+
+.rsvpButton {
+  padding: 7px 12px;
+
+  background: #ffffff;
+  border: 1px solid #3f6d3f;
+  border-radius: 7px;
+
+  color: #3f6d3f;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.rsvpButton:hover:not(:disabled) {
+  background: #edf3e9;
+}
+
+/* Going - Attending */
+
+.goingButton {
+  padding: 7px 12px;
+
+  background: #3f6d3f;
+  border: 1px solid #3f6d3f;
+  border-radius: 7px;
+
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.goingButton:hover:not(:disabled) {
+  background: #315832;
+}
+
+/* Disabled State */
+
+.rsvpButton:disabled,
+.goingButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Error Message */
+
+.rsvpError {
+  margin: 8px 0 0;
+  color: #b42318;
+  font-size: 11px;
+  line-height: 1.4;
+}

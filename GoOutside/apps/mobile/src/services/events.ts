@@ -42,7 +42,7 @@ export type CreateEventInput = {
 };
 
 // --------------------------------------------------
-// Get Event Categories
+// Fetch Event Categories
 // --------------------------------------------------
 
 export async function getEventCategories(): Promise<
@@ -63,7 +63,7 @@ export async function getEventCategories(): Promise<
 }
 
 // --------------------------------------------------
-// Get Upcoming Events and Categories
+// Fetch Upcoming Events and Categories
 // --------------------------------------------------
 
 export async function getUpcomingEventsAndCategories(): Promise<{
@@ -107,7 +107,7 @@ export async function getUpcomingEventsAndCategories(): Promise<{
 }
 
 // --------------------------------------------------
-// Get Events Owned by Current User
+// Fetch Events Created by Current User
 // --------------------------------------------------
 
 export async function getMyEvents(
@@ -129,17 +129,13 @@ export async function getMyEvents(
 }
 
 // --------------------------------------------------
-// Create Event
+// Create Event with Optional Photo
 // --------------------------------------------------
 
 export async function createEvent(
   input: CreateEventInput,
   photo: EventImage | null = null
 ) {
-  // ----------------------------------------
-  // Verify Current User
-  // ----------------------------------------
-
   const {
     data: { user },
     error: authError,
@@ -158,9 +154,7 @@ export async function createEvent(
   let uploadedPath: string | null = null;
   let imageURL: string | null = null;
 
-  // ----------------------------------------
-  // Validate and Upload Event Photo
-  // ----------------------------------------
+  // Validate and upload photo.
 
   if (photo) {
     const validMimeTypes = [
@@ -180,8 +174,6 @@ export async function createEvent(
       );
     }
 
-    // Determine file extension
-
     const extension =
       photo.mimeType === "image/jpeg"
         ? "jpg"
@@ -189,11 +181,7 @@ export async function createEvent(
           ? "png"
           : "webp";
 
-    // Generate unique storage path
-
     const path = `${user.id}/${Crypto.randomUUID()}.${extension}`;
-
-    // Upload photo to Supabase Storage
 
     const { data, error } = await supabase.storage
       .from("events")
@@ -209,16 +197,12 @@ export async function createEvent(
 
     uploadedPath = data.path;
 
-    // Retrieve public image URL
-
     imageURL = supabase.storage
       .from("events")
       .getPublicUrl(data.path).data.publicUrl;
   }
 
-  // ----------------------------------------
-  // Insert Event into Database
-  // ----------------------------------------
+  // Save event in database.
 
   const { data, error } = await supabase
     .from("Event")
@@ -230,9 +214,7 @@ export async function createEvent(
     .select("eventID")
     .single();
 
-  // ----------------------------------------
-  // Clean Up Image if Event Insert Fails
-  // ----------------------------------------
+  // Clean up uploaded image if insert fails.
 
   if (error) {
     if (uploadedPath) {
@@ -251,10 +233,175 @@ export async function createEvent(
     throw error;
   }
 
-  // ----------------------------------------
-  // Return Created Event
-  // ----------------------------------------
-
   return data;
 }
+
+// ==================================================
+// RSVP FUNCTIONS
+// ==================================================
+
+// --------------------------------------------------
+// Notify Multiple Cards of RSVP Changes
+// --------------------------------------------------
+
+// An event may appear in both Featured and its category.
+// This keeps both displayed cards synchronized.
+
+type RSVPListener = (
+  eventID: string,
+  userID: string,
+  going: boolean
+) => void;
+
+const rsvpListeners = new Set<RSVPListener>();
+
+export function subscribeToRSVPChanges(
+  listener: RSVPListener
+): () => void {
+  rsvpListeners.add(listener);
+
+  return () => {
+    rsvpListeners.delete(listener);
+  };
+}
+
+function notifyRSVPChange(
+  eventID: string,
+  userID: string,
+  going: boolean
+) {
+  rsvpListeners.forEach((listener) => {
+    listener(eventID, userID, going);
+  });
+}
+
+// --------------------------------------------------
+// Check Whether User Has RSVP'd
+// --------------------------------------------------
+
+export async function getEventRSVP(
+  eventID: string,
+  userID: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("RSVP")
+    .select("rsvpStatus")
+    .eq("eventID", eventID)
+    .eq("userID", userID)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.rsvpStatus === "going";
+}
+
+// --------------------------------------------------
+// RSVP to Event
+// --------------------------------------------------
+
+export async function addEventRSVP(
+  eventID: string,
+  userID: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("RSVP")
+    .upsert(
+      {
+        eventID,
+        userID,
+        rsvpStatus: "going",
+      },
+      {
+        onConflict: "userID,eventID",
+      }
+    );
+
+  if (error) {
+    throw error;
+  }
+
+  notifyRSVPChange(eventID, userID, true);
+}
+
+// --------------------------------------------------
+// Cancel RSVP - Delete Database Record
+// --------------------------------------------------
+
+export async function removeEventRSVP(
+  eventID: string,
+  userID: string
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("RSVP")
+    .delete()
+    .eq("eventID", eventID)
+    .eq("userID", userID)
+    .select("rsvpID");
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error(
+      "Unable to remove RSVP. Check your database permissions."
+    );
+  }
+
+  notifyRSVPChange(eventID, userID, false);
+}
+
+
+
+// --------------------------------------------------
+// Get Upcoming Events the User RSVP'd To
+// --------------------------------------------------
+
+export async function getMyUpcomingRSVPEvents(
+  userID: string
+): Promise<EventRecord[]> {
+  // Get active RSVP records for this user.
+
+  const { data: rsvps, error: rsvpError } = await supabase
+    .from("RSVP")
+    .select("eventID")
+    .eq("userID", userID)
+    .eq("rsvpStatus", "going");
+
+  if (rsvpError) {
+    throw rsvpError;
+  }
+
+  const eventIDs = [
+    ...new Set(
+      (rsvps ?? []).map((rsvp) => rsvp.eventID)
+    ),
+  ];
+
+  if (eventIDs.length === 0) {
+    return [];
+  }
+
+  // Fetch the corresponding upcoming published events.
+
+  const { data, error } = await supabase
+    .from("Event")
+    .select(FIELDS)
+    .in("eventID", eventIDs)
+    .eq("status", "publicActive")
+    .gte("eventStartTime", new Date().toISOString())
+    .order("eventStartTime", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as EventRecord[];
+}
+
+
 
