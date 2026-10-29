@@ -16,9 +16,9 @@ import type { User } from "@supabase/supabase-js";
 
 import Screen from "../../../src/components/Screen";
 import AppButton from "../../../src/components/ui/AppButton";
-import ProfileBanner from "../../../src/components/profile/ProfileBanner";
 import SettingsCard from "../../../src/components/profile/SettingsCard";
 import { supabase } from "../../../src/lib/supabase";
+import ProfileBanner from "../../../src/components/profile/ProfileBanner";
 
 const ACCENTS = [
   "#0D9488",
@@ -68,6 +68,7 @@ export default function ProfileScreen() {
 
   const [darkMode, setDarkMode] = useState(false);
   const [accentColor, setAccentColor] = useState("#0D9488");
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -86,12 +87,16 @@ export default function ProfileScreen() {
           const { data: profileData, error: profileError } =
             await supabase
               .from("Profile")
-              .select("displayName")
+              .select("displayName, profilePicturePath")
               .eq("userID", data.user.id)
               .single();
 
-          if (profileError) throw profileError;
           if (!mounted) return;
+          if (profileError) {
+            setError(profileError.message);
+            return;
+          }
+          setAvatarPath(profileData?.profilePicturePath ?? null);
 
           const initial = formFromUser(
             data.user,
@@ -103,7 +108,6 @@ export default function ProfileScreen() {
         }
       } catch {
         if (mounted) {
-          setUser(null);
           setError("Unable to load your account.");
         }
       } finally {
@@ -123,6 +127,7 @@ export default function ProfileScreen() {
           setUser(null);
           setForm(EMPTY_FORM);
           setOriginal(EMPTY_FORM);
+          setAvatarPath(null);
         } else if (session?.user) {
           setUser(session.user);
 
@@ -131,11 +136,13 @@ export default function ProfileScreen() {
               const { data: profileData, error } =
                 await supabase
                   .from("Profile")
-                  .select("displayName")
+                  .select("displayName, profilePicturePath")
                   .eq("userID", session.user.id)
                   .single();
 
               if (!mounted || error) return;
+
+              setAvatarPath(profileData?.profilePicturePath ?? null);
 
               const initial = formFromUser(
                 session.user,
@@ -436,6 +443,9 @@ export default function ProfileScreen() {
           memberSince={memberSince}
           location={form.location}
           accentColor={accentColor}
+          userId={user.id}
+          avatarPath={avatarPath}
+          onAvatarUploaded={setAvatarPath}
         />
 
         {/* Personal information */}
@@ -719,6 +729,20 @@ function ActionButton({
 }
 
 const styles = StyleSheet.create({
+  profilePanel: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  memberSince: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 6,
+    marginLeft: 14,
+  },
   scroll: {
     flex: 1,
     backgroundColor: "#F5F7F2",

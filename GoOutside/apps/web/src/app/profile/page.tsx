@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient } from "../../lib/supabase/client";
+import AvatarUpload from "../../components/profile/AvatarUpload";
+import BannerUpload from "../../components/profile/BannerUpload";
 
 const accentColors = [
   "#0D9488",
@@ -27,6 +29,9 @@ export default function ProfilePage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
+
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  const [bannerPath, setBannerPath] = useState<string | null>(null);
 
   const [original, setOriginal] = useState({
     fullName: "",
@@ -72,7 +77,7 @@ export default function ProfilePage() {
         const { data: profileData, error: profileError } =
           await supabase
             .from("Profile")
-            .select("displayName")
+            .select("displayName, profilePicturePath, bannerPath")
             .eq("userID", currentUser.id)
             .maybeSingle();
 
@@ -93,6 +98,8 @@ export default function ProfilePage() {
         setPhone(profile.phone);
         setLocation(profile.location);
         setOriginal(profile);
+        setAvatarPath(profileData?.profilePicturePath ?? null);
+        setBannerPath(profileData?.bannerPath ?? null);
       } catch (err) {
         console.error("Account loading error:", err);
 
@@ -275,6 +282,13 @@ export default function ProfilePage() {
     year: "numeric",
   });
 
+  // Get the public URL for the banner image
+  const supabase = getSupabaseClient();
+
+  const bannerUrl = bannerPath
+    ? supabase.storage.from("banners").getPublicUrl(bannerPath).data.publicUrl
+    : null;
+
   return (
     <main
       className="account-page"
@@ -319,12 +333,25 @@ export default function ProfilePage() {
 
       {/* Profile banner */}
       <section className="account-banner">
-        <div className="account-cover" />
+        <div
+          className="account-cover"
+          style={
+            bannerUrl
+              ? {
+                  backgroundImage: `url("${bannerUrl}")`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : undefined
+          }
+        />
 
         <div className="account-identity">
-          <div className="account-avatar">
-            {initials}
-          </div>
+          <AvatarUpload
+            userId={user.id}
+            initialPath={avatarPath}
+            displayName={displayName}
+          />
 
           <div className="account-identity-info">
             <div className="account-name-row">
@@ -338,21 +365,10 @@ export default function ProfilePage() {
           </div>
 
           <div className="account-image-actions">
-            <button
-              type="button"
-              className="account-btn outline"
-              title="Upload a new cover image"
-            >
-              Change Cover
-            </button>
-
-            <button
-              type="button"
-              className="account-btn outline"
-              title="Upload a new avatar image"
-            >
-              Edit Avatar
-            </button>
+            <BannerUpload
+              userId={user.id}
+              onUploaded={setBannerPath}
+            />
           </div>
         </div>
       </section>
