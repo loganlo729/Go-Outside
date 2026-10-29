@@ -20,7 +20,7 @@ type Suggestion = {
   formatted: string;
 };
 
-const ENDPOINT = process.env.EXPO_PUBLIC_ADDRESS_API_URL;
+const ENDPOINT = process.env.GEOAPIFY_API_KEY;
 
 // --------------------------------------------------
 // Address Autocomplete
@@ -152,7 +152,7 @@ export default function AddressAutocomplete({
 
       {!ENDPOINT && (
         <Text style={styles.message}>
-          Autocomplete needs EXPO_PUBLIC_ADDRESS_API_URL;
+          Autocomplete needs GEOAPIFY_API_KEY;
           manual entry still works.
         </Text>
       )}

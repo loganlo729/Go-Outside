@@ -33,9 +33,7 @@ import {
   subscribeToRSVPChanges, 
 } from "../../../src/services/events";
 
-import type {
-  EventRecord,
-} from "../../../src/types/event";
+import type { EventRecord } from "../../../src/types/event";
 
 // --------------------------------------------------
 // My Events Screen
@@ -453,7 +451,7 @@ export default function MyEventsScreen() {
                 />
 
                 <EventSection
-                  title="Your Drafts"
+                  title="Your Drafted Events"
                   data={draftEvents}
                 />
 
