@@ -1,15 +1,32 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+
 import Link from "next/link";
 
 import EventSection from "../../../components/events/EventSection";
-import { eventClient, getMyEvents } from "../../../services/events";
 
-import type { EventRecord } from "../../../types/event";
+import {
+  eventClient,
+  getMyEvents,
+  getMyUpcomingRSVPEvents,
+  subscribeToRSVPChanges,
+} from "../../../services/events";
+
+import type {
+  EventRecord,
+} from "../../../types/event";
 
 import styles from "../../../components/events/EventDashboard.module.css";
+
+// --------------------------------------------------
+// My Events Page
+// --------------------------------------------------
 
 export default function MyEventsPage() {
   // --------------------------------------------------
@@ -17,6 +34,15 @@ export default function MyEventsPage() {
   // --------------------------------------------------
 
   const [events, setEvents] = useState<EventRecord[]>([]);
+
+  const [rsvpEvents, setRSVPEvents] = useState<
+    EventRecord[]
+  >([]);
+
+  const [currentUserID, setCurrentUserID] = useState<
+    string | null
+  >(null);
+
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -41,21 +67,42 @@ export default function MyEventsPage() {
         throw authError;
       }
 
+      // ----------------------------------------
+      // Signed-Out User
+      // ----------------------------------------
+
       if (!user) {
         setSignedIn(false);
+        setCurrentUserID(null);
+
         setEvents([]);
+        setRSVPEvents([]);
+
         return;
       }
 
-      setSignedIn(true);
+      // ----------------------------------------
+      // Signed-In User
+      // ----------------------------------------
 
-      const userEvents = await getMyEvents(user.id);
-      setEvents(userEvents);
-    } catch (e) {
+      setSignedIn(true);
+      setCurrentUserID(user.id);
+
+      // Fetch created events and RSVP events separately.
+
+      const [createdEvents, attendingEvents] =
+        await Promise.all([
+          getMyEvents(user.id),
+          getMyUpcomingRSVPEvents(user.id),
+        ]);
+
+      setEvents(createdEvents);
+      setRSVPEvents(attendingEvents);
+    } catch (error) {
       setError(
-        e instanceof Error
-          ? e.message
-          : "Unable to load your events"
+        error instanceof Error
+          ? error.message
+          : "Unable to load your events."
       );
     } finally {
       setLoading(false);
@@ -71,56 +118,181 @@ export default function MyEventsPage() {
   }, [load]);
 
   // --------------------------------------------------
-  // Search Filtering
+  // Listen for RSVP Changes
   // --------------------------------------------------
 
-  const filtered = useMemo(() => {
-    const query = search.toLowerCase().trim();
+  useEffect(() => {
+    if (!currentUserID) {
+      return;
+    }
 
-    return events.filter(
-      (event) =>
-        !query ||
-        [
-          event.eventTitle,
-          event.eventDescription,
-          event.eventLocation,
-          event.status,
-        ].some((value) =>
-          (value ?? "").toLowerCase().includes(query)
-        )
+    let active = true;
+    let updateVersion = 0;
+
+    const unsubscribe = subscribeToRSVPChanges(
+      (eventID, userID, going) => {
+        // Only handle the current user's changes.
+
+        if (userID !== currentUserID) {
+          return;
+        }
+
+        // Track the latest RSVP update.
+
+        const version = ++updateVersion;
+
+        // ----------------------------------------
+        // RSVP Cancelled
+        // ----------------------------------------
+
+        if (!going) {
+          // Remove the event from Upcoming Events
+          // immediately after the database delete.
+
+          setRSVPEvents((previous) =>
+            previous.filter(
+              (event) => event.eventID !== eventID
+            )
+          );
+
+          return;
+        }
+
+        // ----------------------------------------
+        // RSVP Added
+        // ----------------------------------------
+
+        // Reload the user's attending events.
+
+        void getMyUpcomingRSVPEvents(currentUserID)
+          .then((result) => {
+            // Ignore outdated requests.
+
+            if (
+              !active ||
+              version !== updateVersion
+            ) {
+              return;
+            }
+
+            setRSVPEvents(result);
+          })
+          .catch((error) => {
+            console.error(
+              "Unable to refresh upcoming RSVP events:",
+              error
+            );
+          });
+      }
     );
-  }, [events, search]);
+
+    // Stop listening when the page unmounts.
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [currentUserID]);
 
   // --------------------------------------------------
-  // Group Events
+  // Filter Events by Search
+  // --------------------------------------------------
+
+  const query = search.trim().toLowerCase();
+
+  function matchesSearch(event: EventRecord): boolean {
+    if (!query) {
+      return true;
+    }
+
+    return [
+      event.eventTitle,
+      event.eventDescription,
+      event.eventLocation,
+      event.status,
+    ].some((value) =>
+      (value ?? "").toLowerCase().includes(query)
+    );
+  }
+
+  // Events created by the user.
+
+  const filteredEvents = events.filter(matchesSearch);
+
+  // Events the user RSVP'd to.
+
+  const filteredRSVPEvents =
+    rsvpEvents.filter(matchesSearch);
+
+  // --------------------------------------------------
+  // Organize Events into Sections
   // --------------------------------------------------
 
   const now = Date.now();
 
-  const upcoming = filtered.filter(
+  // ----------------------------------------
+  // Upcoming Events: RSVP'd Events
+  // ----------------------------------------
+
+  const upcomingEvents = filteredRSVPEvents.filter(
     (event) =>
       event.status === "publicActive" &&
       !!event.eventStartTime &&
       new Date(event.eventStartTime).getTime() >= now
   );
 
-  const drafts = filtered.filter(
+  // ----------------------------------------
+  // Your Active Events: Created by User
+  // ----------------------------------------
+
+  const activeEvents = filteredEvents.filter(
+    (event) =>
+      event.status === "publicActive" &&
+      !!event.eventStartTime &&
+      new Date(event.eventStartTime).getTime() >= now
+  );
+
+  // ----------------------------------------
+  // Your Drafted Events
+  // ----------------------------------------
+
+  const draftEvents = filteredEvents.filter(
     (event) => event.status === "drafted"
   );
 
-  const past = filtered.filter(
+  // ----------------------------------------
+  // Your Past Events
+  // ----------------------------------------
+
+  const pastEvents = filteredEvents.filter(
     (event) =>
       event.status === "publicActive" &&
       !!event.eventStartTime &&
       new Date(event.eventStartTime).getTime() < now
   );
 
-  const others = filtered.filter(
+  // ----------------------------------------
+  // Other Events
+  // ----------------------------------------
+
+  const others = filteredEvents.filter(
     (event) =>
-      !upcoming.includes(event) &&
-      !drafts.includes(event) &&
-      !past.includes(event)
+      !activeEvents.includes(event) &&
+      !draftEvents.includes(event) &&
+      !pastEvents.includes(event)
   );
+
+  // --------------------------------------------------
+  // Empty State
+  // --------------------------------------------------
+
+  const noMatchingEvents =
+    filteredEvents.length === 0 &&
+    filteredRSVPEvents.length === 0;
+
+  const hasNoEvents =
+    events.length === 0 &&
+    rsvpEvents.length === 0;
 
   // --------------------------------------------------
   // Render
@@ -130,41 +302,51 @@ export default function MyEventsPage() {
     <main className={styles.page}>
       {/* Header */}
 
-      
-    <header className={styles.header}>
-      <h1 className={styles.heading}>My Events</h1>
+      <header className={styles.header}>
+        <h1 className={styles.heading}>
+          My Events
+        </h1>
 
-      <div className={styles.headerActions}>
-        <button
-          type="button"
-          className={styles.refreshButton}
-          onClick={() => void load()}
-          disabled={loading}
-        >
-          Refresh
-        </button>
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.refreshButton}
+            onClick={() => void load()}
+            disabled={loading}
+          >
+            Refresh
+          </button>
 
-        <Link
-          href="/events/create_event"
-          className={styles.button}
-        >
-          + Create Event
-        </Link>
-      </div>
-    </header>
+          <Link
+            href="/events/create_event"
+            className={styles.button}
+          >
+            + Create Event
+          </Link>
+        </div>
+      </header>
 
-
-      {/* Loading, Error, and Authentication States */}
+      {/* ----------------------------------------
+          Loading State
+      ---------------------------------------- */}
 
       {loading ? (
         <p className={styles.message}>
           Loading your events...
         </p>
       ) : error ? (
-        <p role="alert" className={styles.error}>
+        // ----------------------------------------
+        // Error State
+        // ----------------------------------------
+
+        <p
+          role="alert"
+          className={styles.error}
+        >
           {error}{" "}
 
           <button
+            type="button"
             className={styles.retry}
             onClick={() => void load()}
           >
@@ -172,11 +354,23 @@ export default function MyEventsPage() {
           </button>
         </p>
       ) : !signedIn ? (
+        // ----------------------------------------
+        // Signed-Out State
+        // ----------------------------------------
+
         <p className={styles.message}>
-          Sign in to see the events you've created.{" "}
-          <Link href="/login">Log in</Link>
+          Sign in to see events you've created
+          or RSVP'd to.{" "}
+
+          <Link href="/login">
+            Log in
+          </Link>
         </p>
       ) : (
+        // ----------------------------------------
+        // Signed-In Content
+        // ----------------------------------------
+
         <>
           {/* Search */}
 
@@ -191,29 +385,38 @@ export default function MyEventsPage() {
             }
           />
 
-          {/* Empty State / Event Sections */}
+          {/* Empty State */}
 
-          {filtered.length === 0 ? (
+          {noMatchingEvents ? (
             <p className={styles.message}>
-              {events.length === 0
-                ? "You haven't created any events yet."
+              {hasNoEvents
+                ? "You haven't created or RSVP'd to any events yet."
                 : "No matching events."}
             </p>
           ) : (
+            // ----------------------------------------
+            // Event Sections
+            // ----------------------------------------
+
             <>
               <EventSection
                 title="Upcoming Events"
-                events={upcoming}
+                events={upcomingEvents}
               />
 
               <EventSection
-                title="Drafts"
-                events={drafts}
+                title="Your Active Events"
+                events={activeEvents}
               />
 
               <EventSection
-                title="Past Events"
-                events={past}
+                title="Your Drafted Events"
+                events={draftEvents}
+              />
+
+              <EventSection
+                title="Your Past Events"
+                events={pastEvents}
               />
 
               <EventSection
@@ -227,4 +430,5 @@ export default function MyEventsPage() {
     </main>
   );
 }
+
 

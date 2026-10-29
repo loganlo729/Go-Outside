@@ -6,6 +6,10 @@ import type {
   EventRecord,
 } from "../types/event";
 
+// ==================================================
+// EVENT CONFIGURATION
+// ==================================================
+
 // --------------------------------------------------
 // Event Query Fields
 // --------------------------------------------------
@@ -21,6 +25,10 @@ export function eventClient() {
   return getSupabaseClient();
 }
 
+// ==================================================
+// EVENT FETCHING
+// ==================================================
+
 // --------------------------------------------------
 // Fetch Upcoming Public Events and Categories
 // --------------------------------------------------
@@ -31,23 +39,27 @@ export async function getUpcomingEventsAndCategories(): Promise<{
 }> {
   const client = eventClient();
 
-  const [eventsResult, categoriesResult] = await Promise.all([
-    client
-      .from("Event")
-      .select(fields)
-      .eq("status", "publicActive")
-      .gte("eventStartTime", new Date().toISOString())
-      .order("eventStartTime", {
-        ascending: true,
-      }),
+  const [eventsResult, categoriesResult] =
+    await Promise.all([
+      client
+        .from("Event")
+        .select(fields)
+        .eq("status", "publicActive")
+        .gte(
+          "eventStartTime",
+          new Date().toISOString()
+        )
+        .order("eventStartTime", {
+          ascending: true,
+        }),
 
-    client
-      .from("Category")
-      .select("categoryID,categoryName")
-      .order("categoryName", {
-        ascending: true,
-      }),
-  ]);
+      client
+        .from("Category")
+        .select("categoryID,categoryName")
+        .order("categoryName", {
+          ascending: true,
+        }),
+    ]);
 
   if (eventsResult.error) {
     throw eventsResult.error;
@@ -86,23 +98,7 @@ export async function getMyEvents(
 }
 
 // --------------------------------------------------
-// Create Event Types
-// --------------------------------------------------
-
-export interface CreateEventInput {
-  eventTitle: string | null;
-  categoryID: string | null;
-  eventDescription: string | null;
-  eventStartTime: string | null;
-  eventEndTime: string | null;
-  eventLocation: string | null;
-  eventCost: number;
-  isFeatured: boolean;
-  status: "drafted" | "publicActive";
-}
-
-// --------------------------------------------------
-// Fetch Available Categories
+// Fetch Available Event Categories
 // --------------------------------------------------
 
 export async function getEventCategories(): Promise<
@@ -120,6 +116,26 @@ export async function getEventCategories(): Promise<
   }
 
   return (data ?? []) as CategoryRecord[];
+}
+
+// ==================================================
+// EVENT CREATION
+// ==================================================
+
+// --------------------------------------------------
+// Create Event Types
+// --------------------------------------------------
+
+export interface CreateEventInput {
+  eventTitle: string | null;
+  categoryID: string | null;
+  eventDescription: string | null;
+  eventStartTime: string | null;
+  eventEndTime: string | null;
+  eventLocation: string | null;
+  eventCost: number;
+  isFeatured: boolean;
+  status: "drafted" | "publicActive";
 }
 
 // --------------------------------------------------
@@ -189,7 +205,7 @@ export async function createEvent(
   }
 
   // ----------------------------------------
-  // Validate Photo
+  // Validate Selected Photo
   // ----------------------------------------
 
   if (photo) {
@@ -212,15 +228,18 @@ export async function createEvent(
 
     const fileName = `${crypto.randomUUID()}.${extension}`;
 
+    // Store each user's images in their own folder.
+
     const storagePath = `${user.id}/${fileName}`;
 
-    const { data, error: uploadError } = await client.storage
-      .from("events")
-      .upload(storagePath, photo, {
-        cacheControl: "3600",
-        contentType: photo.type,
-        upsert: false,
-      });
+    const { data, error: uploadError } =
+      await client.storage
+        .from("events")
+        .upload(storagePath, photo, {
+          cacheControl: "3600",
+          contentType: photo.type,
+          upsert: false,
+        });
 
     if (uploadError) {
       throw new Error(
@@ -230,7 +249,7 @@ export async function createEvent(
 
     uploadedPath = data.path;
 
-    // Retrieve Public Image URL
+    // Retrieve the uploaded image's public URL.
 
     const { data: publicURL } = client.storage
       .from("events")
@@ -243,38 +262,42 @@ export async function createEvent(
   // Insert Event into Database
   // ----------------------------------------
 
-  const { data: event, error: insertError } = await client
-    .from("Event")
-    .insert({
-      userID: user.id,
+  const { data: event, error: insertError } =
+    await client
+      .from("Event")
+      .insert({
+        userID: user.id,
 
-      eventTitle: input.eventTitle,
-      categoryID: input.categoryID,
-      eventDescription: input.eventDescription,
+        eventTitle: input.eventTitle,
+        categoryID: input.categoryID,
+        eventDescription: input.eventDescription,
 
-      eventStartTime: input.eventStartTime,
-      eventEndTime: input.eventEndTime,
+        eventStartTime: input.eventStartTime,
+        eventEndTime: input.eventEndTime,
 
-      eventLocation: input.eventLocation,
-      eventCost: input.eventCost,
+        eventLocation: input.eventLocation,
+        eventCost: input.eventCost,
 
-      isFeatured: input.isFeatured,
-      eventImageURL: imageURL,
+        isFeatured: input.isFeatured,
+        eventImageURL: imageURL,
 
-      status: input.status,
-    })
-    .select("eventID")
-    .single();
+        status: input.status,
+      })
+      .select("eventID")
+      .single();
 
   // ----------------------------------------
-  // Clean Up Image if Event Insert Fails
+  // Handle Failed Database Insert
   // ----------------------------------------
 
   if (insertError) {
+    // Remove any uploaded image if the insert fails.
+
     if (uploadedPath) {
-      const { error: cleanupError } = await client.storage
-        .from("events")
-        .remove([uploadedPath]);
+      const { error: cleanupError } =
+        await client.storage
+          .from("events")
+          .remove([uploadedPath]);
 
       if (cleanupError) {
         console.error(
@@ -284,7 +307,10 @@ export async function createEvent(
       }
     }
 
-    console.error("Error creating event:", insertError);
+    console.error(
+      "Error creating event:",
+      insertError
+    );
 
     throw new Error(
       `${insertError.message}${
@@ -301,6 +327,58 @@ export async function createEvent(
 // ==================================================
 // RSVP FUNCTIONALITY
 // ==================================================
+
+// --------------------------------------------------
+// RSVP Change Notifications
+// --------------------------------------------------
+
+// An event may appear in multiple sections.
+//
+// For example:
+// - Featured Events
+// - Upcoming Events
+// - Your Active Events
+//
+// These listeners synchronize RSVP changes across
+// mounted components within the same browser session.
+
+type RSVPListener = (
+  eventID: string,
+  userID: string,
+  going: boolean
+) => void;
+
+const rsvpListeners = new Set<RSVPListener>();
+
+// --------------------------------------------------
+// Subscribe to RSVP Changes
+// --------------------------------------------------
+
+export function subscribeToRSVPChanges(
+  listener: RSVPListener
+): () => void {
+  rsvpListeners.add(listener);
+
+  // Return an unsubscribe function for useEffect.
+
+  return () => {
+    rsvpListeners.delete(listener);
+  };
+}
+
+// --------------------------------------------------
+// Notify Subscribers
+// --------------------------------------------------
+
+function notifyRSVPChange(
+  eventID: string,
+  userID: string,
+  going: boolean
+): void {
+  rsvpListeners.forEach((listener) => {
+    listener(eventID, userID, going);
+  });
+}
 
 // --------------------------------------------------
 // Get Current User's RSVP Status
@@ -321,7 +399,72 @@ export async function getEventRSVP(
     throw error;
   }
 
+  // Return true only if the user is attending.
+
   return data?.rsvpStatus === "going";
+}
+
+// --------------------------------------------------
+// Get Upcoming Events the User Has RSVP'd To
+// --------------------------------------------------
+
+export async function getMyUpcomingRSVPEvents(
+  userID: string
+): Promise<EventRecord[]> {
+  const client = eventClient();
+
+  // ----------------------------------------
+  // Fetch the User's Active RSVP Records
+  // ----------------------------------------
+
+  const { data: rsvps, error: rsvpError } = await client
+    .from("RSVP")
+    .select("eventID")
+    .eq("userID", userID)
+    .eq("rsvpStatus", "going");
+
+  if (rsvpError) {
+    throw rsvpError;
+  }
+
+  // ----------------------------------------
+  // Collect Unique Event IDs
+  // ----------------------------------------
+
+  const eventIDs = [
+    ...new Set(
+      (rsvps ?? []).map((rsvp) => rsvp.eventID)
+    ),
+  ];
+
+  // No active RSVPs means no upcoming events.
+
+  if (eventIDs.length === 0) {
+    return [];
+  }
+
+  // ----------------------------------------
+  // Fetch Matching Upcoming Published Events
+  // ----------------------------------------
+
+  const { data, error } = await client
+    .from("Event")
+    .select(fields)
+    .in("eventID", eventIDs)
+    .eq("status", "publicActive")
+    .gte(
+      "eventStartTime",
+      new Date().toISOString()
+    )
+    .order("eventStartTime", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as unknown as EventRecord[];
 }
 
 // --------------------------------------------------
@@ -336,8 +479,8 @@ export async function addEventRSVP(
     .from("RSVP")
     .upsert(
       {
-        userID,
         eventID,
+        userID,
         rsvpStatus: "going",
       },
       {
@@ -348,17 +491,26 @@ export async function addEventRSVP(
   if (error) {
     throw error;
   }
+
+  // Update other cards and pages after success.
+
+  notifyRSVPChange(
+    eventID,
+    userID,
+    true
+  );
 }
 
-
-
 // --------------------------------------------------
-// Cancel RSVP - Delete Record from Database
+// Cancel RSVP - Delete Database Record
 // --------------------------------------------------
+
 export async function removeEventRSVP(
   eventID: string,
   userID: string
 ): Promise<void> {
+  // Delete only the RSVP record matching this
+  // authenticated user and event.
   const { data, error } = await eventClient()
     .from("RSVP")
     .delete()
@@ -370,10 +522,18 @@ export async function removeEventRSVP(
     throw error;
   }
 
+  // Verify a record was actually deleted.
   if (!data || data.length === 0) {
     throw new Error(
-      "RSVP could not be deleted. Check your database permissions."
+      "RSVP could not be deleted. Check database permissions."
     );
   }
-}
 
+  // Update other cards and pages after success.
+
+  notifyRSVPChange(
+    eventID,
+    userID,
+    false
+  );
+}

@@ -12,10 +12,11 @@ import {
 } from "../../utils/eventFormat";
 
 import {
+  addEventRSVP,
   eventClient,
   getEventRSVP,
-  addEventRSVP,
   removeEventRSVP,
+  subscribeToRSVPChanges,
 } from "../../services/events";
 
 import styles from "./EventDashboard.module.css";
@@ -52,29 +53,60 @@ export default function EventCard({
   // RSVP State
   // --------------------------------------------------
 
-  const [userID, setUserID] = useState<string | null>(null);
-  const [going, setGoing] = useState(false);
+  const [userID, setUserID] = useState<string | null>(
+    null
+  );
 
+  const [going, setGoing] = useState(false);
   const [loadingRSVP, setLoadingRSVP] = useState(true);
   const [savingRSVP, setSavingRSVP] = useState(false);
-
   const [rsvpError, setRSVPError] = useState("");
 
   const isPublished = event.status === "publicActive";
 
   // --------------------------------------------------
-  // Load Current User's RSVP
+  // Load RSVP and Subscribe to Changes
   // --------------------------------------------------
 
   useEffect(() => {
     let active = true;
 
-    async function loadRSVP() {
-      setLoadingRSVP(true);
-      setGoing(false);
-      setUserID(null);
-      setRSVPError("");
+    let currentUserID: string | null = null;
+    let changeVersion = 0;
 
+    setUserID(null);
+    setGoing(false);
+    setLoadingRSVP(true);
+    setRSVPError("");
+
+    // Listen for RSVP changes from other cards.
+
+    const unsubscribe = subscribeToRSVPChanges(
+      (changedEventID, changedUserID, isGoing) => {
+        if (
+          !active ||
+          changedEventID !== event.eventID ||
+          changedUserID !== currentUserID
+        ) {
+          return;
+        }
+
+        // Mark the database snapshot as outdated.
+
+        changeVersion += 1;
+
+        // Update this card immediately.
+
+        setGoing(isGoing);
+        setRSVPError("");
+      }
+    );
+
+    // ----------------------------------------
+    // Initial RSVP Fetch
+    // ----------------------------------------
+
+    async function loadRSVP() {
       if (!isPublished) {
         setLoadingRSVP(false);
         return;
@@ -82,8 +114,6 @@ export default function EventCard({
 
       try {
         const client = eventClient();
-
-        // Check whether the user has a session.
 
         const {
           data: { session },
@@ -94,17 +124,9 @@ export default function EventCard({
           throw sessionError;
         }
 
-        if (!active) {
+        if (!active || !session) {
           return;
         }
-
-        // Signed-out users can still see the RSVP button.
-
-        if (!session) {
-          return;
-        }
-
-        // Verify authenticated user.
 
         const {
           data: { user },
@@ -119,16 +141,25 @@ export default function EventCard({
           return;
         }
 
+        currentUserID = user.id;
         setUserID(user.id);
 
-        // Retrieve RSVP status from Supabase.
+        // Remember which changes happened before
+        // this database request was sent.
+
+        const versionAtFetch = changeVersion;
 
         const hasRSVP = await getEventRSVP(
           event.eventID,
           user.id
         );
 
-        if (active) {
+        // Do not overwrite a newer RSVP notification.
+
+        if (
+          active &&
+          versionAtFetch === changeVersion
+        ) {
           setGoing(hasRSVP);
         }
       } catch (error) {
@@ -148,8 +179,13 @@ export default function EventCard({
 
     void loadRSVP();
 
+    // ----------------------------------------
+    // Cleanup
+    // ----------------------------------------
+
     return () => {
       active = false;
+      unsubscribe();
     };
   }, [event.eventID, isPublished]);
 
@@ -168,7 +204,7 @@ export default function EventCard({
 
     setRSVPError("");
 
-    // Require authentication before saving an RSVP.
+    // Redirect signed-out users to login.
 
     if (!userID) {
       router.push("/login");
@@ -179,7 +215,7 @@ export default function EventCard({
 
     try {
       if (going) {
-        // Cancel RSVP.
+        // Delete the user's RSVP record.
 
         await removeEventRSVP(
           event.eventID,
@@ -188,7 +224,7 @@ export default function EventCard({
 
         setGoing(false);
       } else {
-        // RSVP to event.
+        // Create the user's RSVP record.
 
         await addEventRSVP(
           event.eventID,
@@ -197,6 +233,9 @@ export default function EventCard({
 
         setGoing(true);
       }
+
+      // Other mounted cards are updated automatically
+      // by the notifications sent from events.ts.
     } catch (error) {
       setRSVPError(
         error instanceof Error
@@ -242,7 +281,9 @@ export default function EventCard({
 
         <h3
           className={styles.cardTitle}
-          title={event.eventTitle ?? "Untitled Event"}
+          title={
+            event.eventTitle ?? "Untitled Event"
+          }
         >
           {formatEventTitle(event.eventTitle)}
         </h3>
@@ -262,7 +303,7 @@ export default function EventCard({
             {formatEventCost(event.eventCost)}
           </strong>
 
-          {/* Featured Badge / RSVP */}
+          {/* Featured Badge and RSVP Button */}
 
           <div className={styles.rsvpActions}>
             {event.isFeatured && (
@@ -302,8 +343,8 @@ export default function EventCard({
 
         {!!rsvpError && (
           <p
-            className={styles.rsvpError}
             role="alert"
+            className={styles.rsvpError}
           >
             {rsvpError}
           </p>
@@ -312,3 +353,4 @@ export default function EventCard({
     </article>
   );
 }
+
