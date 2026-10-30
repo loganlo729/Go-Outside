@@ -1,3 +1,4 @@
+
 import { Stack } from "expo-router";
 
 export default function EventsLayout() {
@@ -14,9 +15,19 @@ export default function EventsLayout() {
       <Stack.Screen name="all_events" />
       <Stack.Screen name="my_events" />
       <Stack.Screen name="create_event" />
+
+      {/* Event Details */}
+      <Stack.Screen
+        name="[eventID]"
+        options={{
+          headerShown: false,
+          title: "Event Details",
+        }}
+      />
     </Stack>
   );
 }
+
 
 
 

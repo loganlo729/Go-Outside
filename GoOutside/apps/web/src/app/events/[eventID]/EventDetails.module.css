@@ -1,0 +1,329 @@
+
+/* --------------------------------------------------
+   Page Layout
+-------------------------------------------------- */
+
+.page {
+  min-height: 100vh;
+  background: #f6f7f3;
+  color: #1f2e22;
+  padding: 32px 24px 80px;
+}
+
+.container {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* --------------------------------------------------
+   Navigation
+-------------------------------------------------- */
+
+.navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.backLink {
+  color: #3f6d3f;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------
+   Hero Image
+-------------------------------------------------- */
+
+.hero {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 520px;
+
+  overflow: hidden;
+  border-radius: 22px;
+
+  background: #dfedea;
+}
+
+.heroImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imagePlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 100%;
+
+  color: #31988f;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 3px;
+}
+
+/* --------------------------------------------------
+   Event Header
+-------------------------------------------------- */
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 28px;
+
+  margin-top: 32px;
+  margin-bottom: 32px;
+}
+
+.headerContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.category {
+  margin: 0 0 10px;
+  color: #3f6d3f;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+
+  color: #1f2e22;
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+  line-height: 1.2;
+
+  overflow-wrap: anywhere;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.featuredBadge {
+  padding: 7px 12px;
+
+  background: #d7efeb;
+  border-radius: 7px;
+
+  color: #207e75;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.draftBadge {
+  padding: 7px 12px;
+
+  background: #e8e9e6;
+  border-radius: 7px;
+
+  color: #5b645a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* --------------------------------------------------
+   Event Price
+-------------------------------------------------- */
+
+.priceBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  min-width: 160px;
+  padding: 20px 24px;
+
+  background: #ffffff;
+  border: 1px solid #e0e6dd;
+  border-radius: 16px;
+}
+
+.priceLabel {
+  color: #63715f;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.price {
+  color: #3f6d3f;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+/* --------------------------------------------------
+   Details Grid
+-------------------------------------------------- */
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.6fr)
+    minmax(280px, 1fr);
+
+  align-items: start;
+  gap: 24px;
+}
+
+.descriptionCard,
+.infoCard {
+  padding: 28px;
+
+  background: #ffffff;
+  border: 1px solid #e0e6dd;
+  border-radius: 18px;
+}
+
+.sectionTitle {
+  margin: 0 0 22px;
+
+  color: #1f2e22;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+/* --------------------------------------------------
+   Description
+-------------------------------------------------- */
+
+.description {
+  margin: 0;
+
+  color: #435044;
+  font-size: 15px;
+  line-height: 1.8;
+
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------
+   Event Information
+-------------------------------------------------- */
+
+.infoRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  padding: 16px 0;
+  border-bottom: 1px solid #edf0ea;
+}
+
+.infoRow:first-of-type {
+  padding-top: 0;
+}
+
+.infoRow:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.infoLabel {
+  color: #63715f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.infoValue {
+  color: #1f2e22;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------
+   Loading and Error States
+-------------------------------------------------- */
+
+.message {
+  padding: 60px 24px;
+  text-align: center;
+  color: #63715f;
+}
+
+.error {
+  padding: 24px;
+  color: #b42318;
+  text-align: center;
+}
+
+.emptyState {
+  padding: 60px 24px;
+  text-align: center;
+  background: #ffffff;
+  border-radius: 18px;
+}
+
+.emptyState h1 {
+  margin-bottom: 12px;
+}
+
+.emptyState p {
+  color: #63715f;
+  margin-bottom: 20px;
+}
+
+.emptyState a {
+  color: #3f6d3f;
+  font-weight: 700;
+}
+
+/* --------------------------------------------------
+   Mobile Responsiveness
+-------------------------------------------------- */
+
+@media (max-width: 768px) {
+  .page {
+    padding: 20px 16px 60px;
+  }
+
+  .hero {
+    border-radius: 14px;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .priceBox {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .detailsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .descriptionCard,
+  .infoCard {
+    padding: 22px;
+  }
+
+  .imagePlaceholder {
+    font-size: 18px;
+  }
+}

@@ -308,15 +308,6 @@ export default function MyEventsPage() {
         </h1>
 
         <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.refreshButton}
-            onClick={() => void load()}
-            disabled={loading}
-          >
-            Refresh
-          </button>
-
           <Link
             href="/events/create_event"
             className={styles.button}

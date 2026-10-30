@@ -416,3 +416,57 @@
   font-size: 11px;
   line-height: 1.4;
 }
+
+
+
+
+/* --------------------------------------------------
+   Clickable Event Cards
+-------------------------------------------------- */
+
+.card {
+  position: relative;
+}
+
+/* Transparent link covering the entire card */
+
+.cardOpenLink {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+/* Keyboard focus indicator */
+
+.cardOpenLink:focus-visible {
+  outline: 3px solid #3f6d3f;
+  outline-offset: -3px;
+}
+
+/* Keep RSVP buttons clickable above the card link */
+
+.rsvpButton,
+.goingButton {
+  position: relative;
+  z-index: 2;
+}
+
+
+
+
+/* --------------------------------------------------
+   Event Host
+-------------------------------------------------- */
+
+.host {
+  margin: 6px 0 0;
+  color: #8290a4;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.host strong {
+  color: #42516b;
+  font-weight: 700;
+}

@@ -537,3 +537,42 @@ export async function removeEventRSVP(
     false
   );
 }
+
+
+
+
+// --------------------------------------------------
+// Get a Single Event by ID
+// --------------------------------------------------
+
+
+export async function getEventByID(
+  eventID: string
+): Promise<EventRecord | null> {
+  if (!eventID) {
+    throw new Error("Missing event ID in the URL.");
+  }
+
+  const { data, error } = await eventClient()
+    .from("Event")
+    .select(fields)
+    .eq("eventID", eventID)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Event lookup failed:", {
+      eventID,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+
+    throw new Error(
+      `Failed to fetch event: ${error.message}`
+    );
+  }
+
+  return data as EventRecord | null;
+}
+

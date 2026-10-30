@@ -91,16 +91,7 @@ export default function AllEventsPage() {
       {/* Header */}
 
       <header className={styles.header}>
-        <h1 className={styles.heading}>Events</h1>
-
-        <button
-          type="button"
-          className={styles.button}
-          onClick={refresh}
-          disabled={refreshing}
-        >
-          {refreshing ? "Refreshing..." : "Refresh"}
-        </button>
+        <h1 className={styles.heading}>All Events</h1>
       </header>
 
       {/* Search */}
@@ -108,8 +99,8 @@ export default function AllEventsPage() {
       <input
         className={styles.search}
         type="search"
-        aria-label="Search local events"
-        placeholder="Search local events..."
+        aria-label="Search all events"
+        placeholder="Search all events..."
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />

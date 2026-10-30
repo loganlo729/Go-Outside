@@ -404,4 +404,30 @@ export async function getMyUpcomingRSVPEvents(
 }
 
 
+export async function getEventByID(
+  eventID: string
+): Promise<EventRecord | null> {
+  if (!eventID) {
+    throw new Error("Missing event ID.");
+  }
+
+  const { data, error } = await supabase
+    .from("Event")
+    .select(
+      "eventID,userID,categoryID,eventTitle,eventDescription,eventStartTime,eventEndTime,eventLocation,eventCost,eventImageURL,isFeatured,status"
+    )
+    .eq("eventID", eventID)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Unable to load event: ${error.message}`
+    );
+  }
+
+  return data as EventRecord | null;
+}
+
+
+
 

@@ -2,6 +2,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import type { EventRecord } from "../../types/event";
@@ -27,7 +29,7 @@ import styles from "./EventDashboard.module.css";
 
 function formatEventTitle(
   title: string | null,
-  maxLength = 22
+  maxLength = 20
 ): string {
   if (!title) {
     return "Untitled Event";
@@ -48,6 +50,44 @@ export default function EventCard({
   event: EventRecord;
 }) {
   const router = useRouter();
+  
+  // --------------------------------------------------
+  // Host Name State
+  // --------------------------------------------------
+  
+  const [hostName, setHostName] = useState("Loading...");
+
+  
+  useEffect(() => {
+    let active = true;
+
+    async function loadHost() {
+      const { data, error } = await eventClient()
+        .from("Profile")
+        .select("displayName")
+        .eq("userID", event.userID)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (error) {
+        console.error("Unable to load event host:", error);
+        setHostName("Unknown");
+        return;
+      }
+
+      setHostName(data?.displayName || "Unknown");
+    }
+
+    void loadHost();
+
+    return () => {
+      active = false;
+    };
+  }, [event.userID]);
+
+
+
 
   // --------------------------------------------------
   // RSVP State
@@ -65,7 +105,7 @@ export default function EventCard({
   const isPublished = event.status === "publicActive";
 
   // --------------------------------------------------
-  // Load RSVP and Subscribe to Changes
+  // Load RSVP Status and Subscribe to Changes
   // --------------------------------------------------
 
   useEffect(() => {
@@ -79,7 +119,7 @@ export default function EventCard({
     setLoadingRSVP(true);
     setRSVPError("");
 
-    // Listen for RSVP changes from other cards.
+    // Listen for RSVP updates from other event cards.
 
     const unsubscribe = subscribeToRSVPChanges(
       (changedEventID, changedUserID, isGoing) => {
@@ -91,11 +131,7 @@ export default function EventCard({
           return;
         }
 
-        // Mark the database snapshot as outdated.
-
         changeVersion += 1;
-
-        // Update this card immediately.
 
         setGoing(isGoing);
         setRSVPError("");
@@ -103,7 +139,7 @@ export default function EventCard({
     );
 
     // ----------------------------------------
-    // Initial RSVP Fetch
+    // Load Initial RSVP
     // ----------------------------------------
 
     async function loadRSVP() {
@@ -144,9 +180,6 @@ export default function EventCard({
         currentUserID = user.id;
         setUserID(user.id);
 
-        // Remember which changes happened before
-        // this database request was sent.
-
         const versionAtFetch = changeVersion;
 
         const hasRSVP = await getEventRSVP(
@@ -154,7 +187,8 @@ export default function EventCard({
           user.id
         );
 
-        // Do not overwrite a newer RSVP notification.
+        // Prevent an outdated response from
+        // overwriting a newer RSVP change.
 
         if (
           active &&
@@ -179,10 +213,6 @@ export default function EventCard({
 
     void loadRSVP();
 
-    // ----------------------------------------
-    // Cleanup
-    // ----------------------------------------
-
     return () => {
       active = false;
       unsubscribe();
@@ -204,8 +234,6 @@ export default function EventCard({
 
     setRSVPError("");
 
-    // Redirect signed-out users to login.
-
     if (!userID) {
       router.push("/login");
       return;
@@ -215,7 +243,7 @@ export default function EventCard({
 
     try {
       if (going) {
-        // Delete the user's RSVP record.
+        // Delete the RSVP record.
 
         await removeEventRSVP(
           event.eventID,
@@ -224,7 +252,7 @@ export default function EventCard({
 
         setGoing(false);
       } else {
-        // Create the user's RSVP record.
+        // Create the RSVP record.
 
         await addEventRSVP(
           event.eventID,
@@ -233,9 +261,6 @@ export default function EventCard({
 
         setGoing(true);
       }
-
-      // Other mounted cards are updated automatically
-      // by the notifications sent from events.ts.
     } catch (error) {
       setRSVPError(
         error instanceof Error
@@ -248,11 +273,20 @@ export default function EventCard({
   }
 
   // --------------------------------------------------
-  // Render Event Card
+  // Render
   // --------------------------------------------------
-
   return (
     <article className={styles.card}>
+      {/* Clickable Card Overlay */}
+
+      <Link
+        href={`/events/${event.eventID}`}
+        className={styles.cardOpenLink}
+        aria-label={`View details for ${
+          event.eventTitle || "Untitled Event"
+        }`}
+      />
+
       {/* Event Image */}
 
       {event.eventImageURL?.startsWith("https://") ? (
@@ -281,9 +315,7 @@ export default function EventCard({
 
         <h3
           className={styles.cardTitle}
-          title={
-            event.eventTitle ?? "Untitled Event"
-          }
+          title={event.eventTitle ?? "Untitled Event"}
         >
           {formatEventTitle(event.eventTitle)}
         </h3>
@@ -291,19 +323,25 @@ export default function EventCard({
         {/* Location */}
 
         <p className={styles.location}>
-          ⌖ {event.eventLocation || "Location TBD"}
+          ⌖ {event.eventLocation
+            ? event.eventLocation.length > 65
+              ? `${event.eventLocation.slice(0, 65)}...`
+              : event.eventLocation
+            : "Location TBD"}
         </p>
 
-        {/* Card Footer */}
+        {/* Event Host */}
+
+        <p className={styles.host}>
+          Hosted by: <strong>{hostName}</strong>
+        </p>
+
+        {/* Footer */}
 
         <div className={styles.cardFooter}>
-          {/* Event Cost */}
-
           <strong>
             {formatEventCost(event.eventCost)}
           </strong>
-
-          {/* Featured Badge and RSVP Button */}
 
           <div className={styles.rsvpActions}>
             {event.isFeatured && (
@@ -320,7 +358,10 @@ export default function EventCard({
                     ? styles.goingButton
                     : styles.rsvpButton
                 }
-                onClick={() => void handleRSVP()}
+                onClick={(clickEvent) => {
+                  clickEvent.stopPropagation();
+                  void handleRSVP();
+                }}
                 disabled={loadingRSVP || savingRSVP}
                 aria-pressed={going}
                 aria-label={
@@ -353,4 +394,3 @@ export default function EventCard({
     </article>
   );
 }
-
