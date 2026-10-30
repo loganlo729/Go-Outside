@@ -1,8 +1,9 @@
+
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export function getServerSupabaseClient() {
-  const cookieStore = cookies();
+export async function createClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,14 +13,14 @@ export function getServerSupabaseClient() {
         getAll() {
           return cookieStore.getAll();
         },
-
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
           } catch {
-            // Cookie updates may not be allowed from a Server Component.
+            // Server Components cannot write cookies.
+            // Middleware handles session refresh.
           }
         },
       },

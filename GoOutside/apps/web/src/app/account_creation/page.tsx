@@ -69,6 +69,31 @@ export default function SignUpPage() {
     }
   }
 
+  async function handleGoogleSignUp() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo:
+          `${window.location.origin}/auth/callback?next=/complete-profile`,
+      },
+    });
+
+      if (error) {
+        throw error;
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to sign up with Google."
+      );
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -203,6 +228,19 @@ export default function SignUpPage() {
             disabled={loading || checkingUsername}
           >
             {loading ? "Creating account..." : "Create Account"}
+          </button>
+
+          <div className="auth-divider">
+            <span>or</span>
+          </div>
+
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={handleGoogleSignUp}
+            disabled={loading}
+          >
+            Continue with Google
           </button>
 
           <button
