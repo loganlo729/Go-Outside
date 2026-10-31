@@ -12,10 +12,5 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "2.118.0"
   },
-  "pnpm": {
-    "overrides": {
-      "@supabase/supabase-js": "2.118.0"
-    }
-  },
   "packageManager": "pnpm@10.28.0"
 }
