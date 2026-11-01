@@ -63,10 +63,6 @@ export default function MyEventsPage() {
         error: authError,
       } = await eventClient().auth.getUser();
 
-      if (authError) {
-        throw authError;
-      }
-
       // ----------------------------------------
       // Signed-Out User
       // ----------------------------------------
@@ -80,6 +76,11 @@ export default function MyEventsPage() {
 
         return;
       }
+
+      if (authError) {
+        throw authError;
+      }
+
 
       // ----------------------------------------
       // Signed-In User
@@ -308,12 +309,14 @@ export default function MyEventsPage() {
         </h1>
 
         <div className={styles.headerActions}>
-          <Link
-            href="/events/create_event"
-            className={styles.button}
-          >
-            + Create Event
-          </Link>
+          {signedIn && (
+            <Link
+              href="/events/create_event"
+              className={styles.button}
+            >
+              + Create Event
+            </Link>
+          )}
         </div>
       </header>
 
@@ -343,20 +346,21 @@ export default function MyEventsPage() {
           >
             Retry
           </button>
-        </p>
+        </p>      
       ) : !signedIn ? (
-        // ----------------------------------------
-        // Signed-Out State
-        // ----------------------------------------
+        <div className={styles.signedOutContainer}>
+          <p className={styles.signedOutMessage}>
+            Log in to see your events.
+          </p>
 
-        <p className={styles.message}>
-          Sign in to see events you've created
-          or RSVP'd to.{" "}
-
-          <Link href="/login">
-            Log in
+          <Link
+            href="/login"
+            className={styles.loginButton}
+          >
+            Log In
           </Link>
-        </p>
+        </div>
+
       ) : (
         // ----------------------------------------
         // Signed-In Content

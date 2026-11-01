@@ -27,10 +27,11 @@ import AppSearchInput from "../../../src/components/ui/AppSearchInput";
 import EventSection from "../../../src/components/events/EventSection";
 
 import { theme } from "../../../src/constants/theme";
+
 import {
   getMyEvents,
   getMyUpcomingRSVPEvents,
-  subscribeToRSVPChanges, 
+  subscribeToRSVPChanges,
 } from "../../../src/services/events";
 
 import type { EventRecord } from "../../../src/types/event";
@@ -59,7 +60,7 @@ export default function MyEventsScreen() {
   const [signedIn, setSignedIn] = useState(false);
 
   // --------------------------------------------------
-  // Load Events Owned by Current User
+  // Load Events for the Current User
   // --------------------------------------------------
 
   const fetchMyEvents = useCallback(
@@ -73,29 +74,78 @@ export default function MyEventsScreen() {
       setError("");
 
       try {
+        // ----------------------------------------
+        // Check Authentication Session
+        // ----------------------------------------
+
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        // ----------------------------------------
+        // Signed-Out User
+        // ----------------------------------------
+
+        if (!session) {
+          setSignedIn(false);
+          setCurrentUserID(null);
+          setEvents([]);
+          setRSVPEvents([]);
+          setError("");
+          return;
+        }
+
+        // ----------------------------------------
+        // Verify Authenticated User
+        // ----------------------------------------
+
         const {
           data: { user },
           error: authError,
         } = await supabase.auth.getUser();
 
         if (authError) {
+          // If the session is no longer valid,
+          // clear the local authentication state.
+
+          if (
+            authError.name === "AuthSessionMissingError" ||
+            authError.name === "AuthApiError" &&
+              authError.status === 401
+          ) {
+            setSignedIn(false);
+            setCurrentUserID(null);
+            setEvents([]);
+            setRSVPEvents([]);
+            setError("");
+            return;
+          }
+
           throw authError;
         }
-        
+
         if (!user) {
           setSignedIn(false);
           setCurrentUserID(null);
-
           setEvents([]);
           setRSVPEvents([]);
-
+          setError("");
           return;
         }
+
+        // ----------------------------------------
+        // Signed-In User
+        // ----------------------------------------
 
         setSignedIn(true);
         setCurrentUserID(user.id);
 
-        // Fetch created events and RSVP'd events separately.
+        // Fetch created and RSVP'd events separately.
 
         const [createdEvents, attendingEvents] =
           await Promise.all([
@@ -105,13 +155,8 @@ export default function MyEventsScreen() {
 
         setEvents(createdEvents);
         setRSVPEvents(attendingEvents);
-
-        
       } catch (err) {
-        console.error(
-          "Error loading user events:",
-          err
-        );
+        console.error("Error loading user events:", err);
 
         setError(
           err instanceof Error
@@ -127,19 +172,15 @@ export default function MyEventsScreen() {
   );
 
   // --------------------------------------------------
-  // Refresh When Screen Receives Focus
+  // Refresh Whenever Screen Receives Focus
   // --------------------------------------------------
 
   useFocusEffect(
     useCallback(() => {
       void fetchMyEvents();
-
-      // Screen automatically reloads after returning
-      // from the Create Event screen.
     }, [fetchMyEvents])
   );
 
-  
   // --------------------------------------------------
   // Update Upcoming Events When RSVP Changes
   // --------------------------------------------------
@@ -150,6 +191,7 @@ export default function MyEventsScreen() {
     }
 
     let active = true;
+    let updateVersion = 0;
 
     const unsubscribe = subscribeToRSVPChanges(
       (eventID, userID, going) => {
@@ -157,10 +199,13 @@ export default function MyEventsScreen() {
           return;
         }
 
-        if (!going) {
-          // Remove the event immediately when
-          // the user cancels their RSVP.
+        const version = ++updateVersion;
 
+        // ----------------------------------------
+        // RSVP Removed
+        // ----------------------------------------
+
+        if (!going) {
           setRSVPEvents((previous) =>
             previous.filter(
               (event) => event.eventID !== eventID
@@ -170,19 +215,20 @@ export default function MyEventsScreen() {
           return;
         }
 
-        // Reload upcoming RSVP events when
-        // the user RSVPs to a new event.
+        // ----------------------------------------
+        // RSVP Added
+        // ----------------------------------------
 
         void getMyUpcomingRSVPEvents(currentUserID)
           .then((result) => {
-            if (active) {
+            if (active && version === updateVersion) {
               setRSVPEvents(result);
             }
           })
-          .catch((error) => {
+          .catch((err) => {
             console.error(
               "Unable to refresh RSVP events:",
-              error
+              err
             );
           });
       }
@@ -194,8 +240,6 @@ export default function MyEventsScreen() {
     };
   }, [currentUserID]);
 
-
-  
   // --------------------------------------------------
   // Filter Events by Search
   // --------------------------------------------------
@@ -217,51 +261,54 @@ export default function MyEventsScreen() {
     );
   }
 
-  // Events created by the current user.
+  // Events created by the user.
 
   const filteredEvents = events.filter(matchesSearch);
 
-  // Events the current user RSVP'd to.
+  // Events the user RSVP'd to.
 
-  const filteredRSVPEvents =
-    rsvpEvents.filter(matchesSearch);
-
+  const filteredRSVPEvents = rsvpEvents.filter(matchesSearch);
 
   // --------------------------------------------------
   // Organize Events into Sections
   // --------------------------------------------------
 
-  const now = new Date();
+  const now = Date.now();
 
-  // Upcoming events that the user is RSVP'd to
+  // Upcoming Events: Events the user is attending.
+
   const upcomingEvents = filteredRSVPEvents.filter(
     (event) =>
       event.status === "publicActive" &&
       !!event.eventStartTime &&
-      new Date(event.eventStartTime) >= now
+      new Date(event.eventStartTime).getTime() >= now
   );
 
-  // Active events created by the user
+  // Your Active Events: Upcoming events created by the user.
+
   const activeEvents = filteredEvents.filter(
     (event) =>
       event.status === "publicActive" &&
       !!event.eventStartTime &&
-      new Date(event.eventStartTime) >= now
+      new Date(event.eventStartTime).getTime() >= now
   );
 
-  // Drafted events created by the user
+  // Your Drafted Events.
+
   const draftEvents = filteredEvents.filter(
-    (event) =>
-      event.status.toLowerCase().includes("draft")
+    (event) => event.status === "drafted"
   );
 
-  // Past events created by the user
+  // Your Past Events.
+
   const pastEvents = filteredEvents.filter(
     (event) =>
       event.status === "publicActive" &&
       !!event.eventStartTime &&
-      new Date(event.eventStartTime) < now
+      new Date(event.eventStartTime).getTime() < now
   );
+
+  // Other Events.
 
   const otherEvents = filteredEvents.filter(
     (event) =>
@@ -298,10 +345,13 @@ export default function MyEventsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => fetchMyEvents(true)}
+            onRefresh={() => {
+              void fetchMyEvents(true);
+            }}
             tintColor={theme.colors.primary}
           />
         }
@@ -312,7 +362,9 @@ export default function MyEventsScreen() {
           Events
         </Text>
 
-        {/* Dashboard Navigation */}
+        {/* ----------------------------------------
+            Navigation Tabs
+        ---------------------------------------- */}
 
         <View style={styles.tabs}>
           <Pressable
@@ -321,6 +373,7 @@ export default function MyEventsScreen() {
               router.replace("/events/all_events")
             }
             accessibilityRole="button"
+            accessibilityLabel="All Events"
           >
             <Text style={styles.inactiveTabText}>
               All Events
@@ -339,26 +392,33 @@ export default function MyEventsScreen() {
         ---------------------------------------- */}
 
         {!signedIn && (
-          <View style={styles.message}>
-            <Text style={styles.emptyTitle}>
-              Sign in to see your events
+          <View style={styles.signedOutContainer}>
+            <Text style={styles.signedOutMessage}>
+              Log in to see your events.
             </Text>
 
-            <Text style={styles.emptyText}>
-              Events you create will appear here.
+            <Text style={styles.signedOutDescription}>
+              View events you've created and events you're attending.
             </Text>
 
             <Pressable
-              style={styles.primaryButton}
+              style={styles.loginButton}
               onPress={() =>
                 router.push("/Login_Sign_Up/login")
               }
               accessibilityRole="button"
+              accessibilityLabel="Log in to see your events"
             >
-              <Text style={styles.buttonText}>
-                Log in
+              <Text style={styles.loginButtonText}>
+                Log In
               </Text>
             </Pressable>
+
+            {!!error && (
+              <Text style={styles.errorText}>
+                {error}
+              </Text>
+            )}
           </View>
         )}
 
@@ -368,38 +428,43 @@ export default function MyEventsScreen() {
 
         {signedIn && (
           <>
-            {/* Search Bar and Create Event Button */}
-              <View style={styles.searchAndCreateRow}>
-                {/* Search Bar - Left */}
+            {/* ----------------------------------------
+                Search and Create Event Row
+            ---------------------------------------- */}
 
-                <View style={styles.searchWrapper}>
-                  <AppSearchInput
-                    value={search}
-                    onChangeText={setSearch}
-                    placeholder="Search your events..."
-                  />
-                </View>
+            <View style={styles.searchAndCreateRow}>
+              {/* Search Bar */}
 
-                {/* Create Event Button - Right */}
-                <Pressable
-                  style={[
-                    styles.primaryButton,
-                    styles.createEventButton,
-                  ]}
-                  onPress={() =>
-                    router.push("/events/create_event")
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel="Create a new event"
-                >
-                  <Text style={styles.buttonText}>
-                    + Create Event
-                  </Text>
-                </Pressable>
+              <View style={styles.searchWrapper}>
+                <AppSearchInput
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search your events..."
+                />
               </View>
-            
 
-            {/* Database Errors */}
+              {/* Create Event Button */}
+
+              <Pressable
+                style={[
+                  styles.primaryButton,
+                  styles.createEventButton,
+                ]}
+                onPress={() =>
+                  router.push("/events/create_event")
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Create a new event"
+              >
+                <Text style={styles.buttonText}>
+                  + Create Event
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* ----------------------------------------
+                Database Errors
+            ---------------------------------------- */}
 
             {!!error && (
               <View style={styles.message}>
@@ -408,7 +473,9 @@ export default function MyEventsScreen() {
                 </Text>
 
                 <Pressable
-                  onPress={() => fetchMyEvents()}
+                  onPress={() => {
+                    void fetchMyEvents();
+                  }}
                   accessibilityRole="button"
                 >
                   <Text style={styles.retryText}>
@@ -418,10 +485,12 @@ export default function MyEventsScreen() {
               </View>
             )}
 
-            {/* Empty State */}
+            {/* ----------------------------------------
+                Empty State
+            ---------------------------------------- */}
 
             {!error &&
-              filteredEvents.length === 0 && 
+              filteredEvents.length === 0 &&
               filteredRSVPEvents.length === 0 && (
                 <View style={styles.message}>
                   <Text style={styles.emptyTitle}>
@@ -429,14 +498,17 @@ export default function MyEventsScreen() {
                   </Text>
 
                   <Text style={styles.emptyText}>
-                    {events.length === 0 && rsvpEvents.length === 0
-                      ? "You haven't created any events yet."
+                    {events.length === 0 &&
+                    rsvpEvents.length === 0
+                      ? "You haven't created or RSVP'd to any events yet."
                       : "Try another search."}
                   </Text>
                 </View>
               )}
 
-            {/* Event Sections */}
+            {/* ----------------------------------------
+                Event Sections
+            ---------------------------------------- */}
 
             {!error && (
               <>
@@ -480,9 +552,17 @@ export default function MyEventsScreen() {
 // --------------------------------------------------
 
 const styles = StyleSheet.create({
+  // --------------------------------------------------
+  // Page Layout
+  // --------------------------------------------------
+
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
   },
 
   center: {
@@ -498,7 +578,9 @@ const styles = StyleSheet.create({
     color: theme.colors.secondaryText,
   },
 
+  // --------------------------------------------------
   // Header
+  // --------------------------------------------------
 
   header: {
     fontSize: 28,
@@ -509,7 +591,9 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
+  // --------------------------------------------------
   // Navigation Tabs
+  // --------------------------------------------------
 
   tabs: {
     height: 52,
@@ -545,22 +629,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // Create Event Button
+  // --------------------------------------------------
+  // Search and Create Event Row
+  // --------------------------------------------------
 
-  createEventRow: {
+  searchAndCreateRow: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    alignItems: "center",
     marginHorizontal: 24,
     marginTop: 20,
     marginBottom: 16,
+    gap: 10,
   },
+
+  searchWrapper: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  createEventButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexShrink: 0,
+  },
+
+  // --------------------------------------------------
+  // Shared Buttons
+  // --------------------------------------------------
 
   primaryButton: {
     backgroundColor: theme.colors.primary,
     borderRadius: 9,
     paddingVertical: 12,
     paddingHorizontal: 28,
-    marginTop: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   buttonText: {
@@ -570,7 +673,52 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // Messages
+  // --------------------------------------------------
+  // Signed-Out Screen
+  // --------------------------------------------------
+
+  signedOutContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 80,
+    gap: 18,
+  },
+
+  signedOutMessage: {
+    color: "#53617A",
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  signedOutDescription: {
+    color: theme.colors.secondaryText,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+
+  loginButton: {
+    backgroundColor: "#31988F",
+    borderRadius: 8,
+    paddingHorizontal: 30,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  loginButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  // --------------------------------------------------
+  // Messages and Errors
+  // --------------------------------------------------
+
   message: {
     padding: 24,
     alignItems: "center",
@@ -602,33 +750,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  // --------------------------------------------------
   // Bottom Spacing
+  // --------------------------------------------------
+
   bottom: {
     height: 35,
   },
-  
-  // --------------------------------------------------
-  // Search and Create Event Row
-  // --------------------------------------------------
-
-  searchAndCreateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 24,
-    marginTop: 20,
-    marginBottom: 16,
-    gap: 10,
-  },
-
-  searchWrapper: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  createEventButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    flexShrink: 0,
-  },
-
 });
+
