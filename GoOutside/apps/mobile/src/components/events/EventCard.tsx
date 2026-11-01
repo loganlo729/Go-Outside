@@ -2,6 +2,7 @@
 import React, {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -20,10 +21,9 @@ import {
 } from "expo-router";
 
 import { supabase } from "../../lib/supabase";
+import { theme } from "../../constants/theme";
 
-import type {
-  EventRecord,
-} from "../../types/event";
+import type { EventRecord } from "../../types/event";
 
 import {
   formatEventCost,
@@ -38,7 +38,7 @@ import {
 } from "../../services/events";
 
 // --------------------------------------------------
-// Event Card Props
+// Props
 // --------------------------------------------------
 
 type EventCardProps = {
@@ -47,12 +47,12 @@ type EventCardProps = {
 };
 
 // --------------------------------------------------
-// Format Event Title
+// Display Formatting
 // --------------------------------------------------
 
 function formatEventTitle(
   title: string | null,
-  maxLength = 20
+  maxLength = 22
 ): string {
   if (!title) {
     return "Untitled Event";
@@ -61,6 +61,19 @@ function formatEventTitle(
   return title.length > maxLength
     ? `${title.slice(0, maxLength)}...`
     : title;
+}
+
+function formatLocation(
+  location: string | null,
+  maxLength = 45
+): string {
+  if (!location) {
+    return "Location TBD";
+  }
+
+  return location.length > maxLength
+    ? `${location.slice(0, maxLength)}...`
+    : location;
 }
 
 // --------------------------------------------------
@@ -77,19 +90,21 @@ export default function EventCard({
   // RSVP State
   // --------------------------------------------------
 
-  const [userID, setUserID] = useState<
-    string | null
-  >(null);
+  const [userID, setUserID] = useState<string | null>(
+    null
+  );
 
   const [going, setGoing] = useState(false);
-
-  const [loadingRSVP, setLoadingRSVP] =
-    useState(true);
-
-  const [savingRSVP, setSavingRSVP] =
-    useState(false);
-
+  const [loadingRSVP, setLoadingRSVP] = useState(true);
+  const [savingRSVP, setSavingRSVP] = useState(false);
   const [rsvpError, setRSVPError] = useState("");
+
+  // Prevent older RSVP requests from overwriting
+  // more recent changes.
+  const rsvpVersion = useRef(0);
+
+  // Prevent rapid duplicate RSVP button presses.
+  const savingRef = useRef(false);
 
   // --------------------------------------------------
   // Event Status
@@ -104,6 +119,10 @@ export default function EventCard({
       Date.now();
 
   const canRSVP = isPublished && isUpcoming;
+
+  const hasImage = Boolean(
+    event.eventImageURL?.startsWith("https://")
+  );
 
   // --------------------------------------------------
   // Open Event Details
@@ -120,25 +139,23 @@ export default function EventCard({
   }
 
   // --------------------------------------------------
-  // Load RSVP Status on Focus
+  // Load RSVP When Screen Receives Focus
   // --------------------------------------------------
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      let activeUserID: string | null = null;
 
-      let currentUserID: string | null = null;
-      let changeVersion = 0;
+      const currentVersion = ++rsvpVersion.current;
 
       setUserID(null);
       setGoing(false);
-      setLoadingRSVP(true);
       setRSVPError("");
+      setLoadingRSVP(canRSVP);
 
-      // ----------------------------------------
-      // Listen for RSVP Changes
-      // ----------------------------------------
-
+      // Listen for changes made by other cards
+      // showing the same event.
       const unsubscribe = subscribeToRSVPChanges(
         (
           changedEventID,
@@ -148,25 +165,19 @@ export default function EventCard({
           if (
             !active ||
             changedEventID !== event.eventID ||
-            changedUserID !== currentUserID
+            changedUserID !== activeUserID
           ) {
             return;
           }
 
-          changeVersion += 1;
-
+          rsvpVersion.current += 1;
           setGoing(isGoing);
           setRSVPError("");
         }
       );
 
-      // ----------------------------------------
-      // Fetch Current RSVP Status
-      // ----------------------------------------
-
       async function loadRSVP() {
         if (!canRSVP) {
-          setLoadingRSVP(false);
           return;
         }
 
@@ -197,19 +208,21 @@ export default function EventCard({
             return;
           }
 
-          currentUserID = user.id;
+          activeUserID = user.id;
           setUserID(user.id);
 
-          const versionAtFetch = changeVersion;
+          const requestVersion = rsvpVersion.current;
 
           const hasRSVP = await getEventRSVP(
             event.eventID,
             user.id
           );
 
+          // Only apply the result if no newer
+          // RSVP change has occurred.
           if (
             active &&
-            versionAtFetch === changeVersion
+            requestVersion === rsvpVersion.current
           ) {
             setGoing(hasRSVP);
           }
@@ -230,16 +243,44 @@ export default function EventCard({
 
       void loadRSVP();
 
-      // ----------------------------------------
-      // Cleanup
-      // ----------------------------------------
-
       return () => {
         active = false;
         unsubscribe();
+
+        // Invalidate unfinished requests.
+        if (rsvpVersion.current === currentVersion) {
+          rsvpVersion.current += 1;
+        }
       };
     }, [event.eventID, canRSVP])
   );
+
+  // --------------------------------------------------
+  // Synchronize RSVP Changes Across Cards
+  // --------------------------------------------------
+
+  useEffect(() => {
+    if (!userID || !canRSVP) {
+      return;
+    }
+
+    const unsubscribe = subscribeToRSVPChanges(
+      (changedEventID, changedUserID, isGoing) => {
+        if (
+          changedEventID !== event.eventID ||
+          changedUserID !== userID
+        ) {
+          return;
+        }
+
+        rsvpVersion.current += 1;
+        setGoing(isGoing);
+        setRSVPError("");
+      }
+    );
+
+    return unsubscribe;
+  }, [event.eventID, userID, canRSVP]);
 
   // --------------------------------------------------
   // Toggle RSVP
@@ -249,30 +290,25 @@ export default function EventCard({
     if (
       !canRSVP ||
       loadingRSVP ||
-      savingRSVP
+      savingRef.current
     ) {
       return;
     }
 
     setRSVPError("");
 
-    // ----------------------------------------
-    // Require Authentication
-    // ----------------------------------------
-
+    // Signed-out users must log in first.
     if (!userID) {
-      router.push(
-        "/Login_Sign_Up/login"
-      );
+      router.push("/Login_Sign_Up/login");
       return;
     }
 
+    savingRef.current = true;
     setSavingRSVP(true);
 
     try {
       if (going) {
-        // Delete the user's RSVP record.
-
+        // Cancel RSVP and delete the database record.
         await removeEventRSVP(
           event.eventID,
           userID
@@ -280,8 +316,7 @@ export default function EventCard({
 
         setGoing(false);
       } else {
-        // Create the user's RSVP record.
-
+        // Create RSVP.
         await addEventRSVP(
           event.eventID,
           userID
@@ -290,8 +325,8 @@ export default function EventCard({
         setGoing(true);
       }
 
-      // Other mounted EventCards receive
-      // the RSVP change notification.
+      // The service notifies other event cards,
+      // keeping all occurrences synchronized.
     } catch (error) {
       setRSVPError(
         error instanceof Error
@@ -299,6 +334,7 @@ export default function EventCard({
           : "Unable to update RSVP."
       );
     } finally {
+      savingRef.current = false;
       setSavingRSVP(false);
     }
   }
@@ -323,23 +359,17 @@ export default function EventCard({
       >
         {/* Event Image */}
 
-        {event.eventImageURL?.startsWith(
-          "https://"
-        ) ? (
+        {hasImage ? (
           <Image
             source={{
-              uri: event.eventImageURL,
+              uri: event.eventImageURL!,
             }}
             style={styles.image}
             resizeMode="cover"
           />
         ) : (
-          <View
-            style={styles.imagePlaceholder}
-          >
-            <Text
-              style={styles.placeholderText}
-            >
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderText}>
               GO OUTSIDE
             </Text>
           </View>
@@ -347,24 +377,20 @@ export default function EventCard({
 
         {/* Event Information */}
 
-        <View style={styles.cardBody}>
+        <View style={styles.body}>
           {/* Date */}
 
           <Text style={styles.date}>
-            {formatEventDate(
-              event.eventStartTime
-            )}
+            {formatEventDate(event.eventStartTime)}
           </Text>
 
           {/* Title */}
 
           <Text
-            style={styles.cardTitle}
+            style={styles.title}
             numberOfLines={2}
           >
-            {formatEventTitle(
-              event.eventTitle
-            )}
+            {formatEventTitle(event.eventTitle)}
           </Text>
 
           {/* Location */}
@@ -373,39 +399,52 @@ export default function EventCard({
             style={styles.location}
             numberOfLines={2}
           >
-            {event.eventLocation ||
-              "Location TBD"}
+            ⌖ {formatLocation(event.eventLocation)}
+          </Text>
+
+          {/* Host */}
+
+          <Text
+            style={styles.hostLine}
+            numberOfLines={1}
+          >
+            Hosted by:{" "}
+            <Text style={styles.hostName}>
+              {event.hostName || "Unknown Host"}
+            </Text>
           </Text>
         </View>
       </Pressable>
 
       {/* ----------------------------------------
-          Footer - Separate from Clickable Card
+          Divider
       ---------------------------------------- */}
 
-      <View style={styles.cardFooter}>
-        {/* Event Cost */}
+      <View style={styles.divider} />
 
-        <Text style={styles.cost}>
-          {formatEventCost(
-            event.eventCost
-          )}
+      {/* ----------------------------------------
+          Footer
+      ---------------------------------------- */}
+
+      <View style={styles.footer}>
+        {/* Price */}
+
+        <Text style={styles.price}>
+          {formatEventCost(event.eventCost)}
         </Text>
 
-        {/* RSVP and Featured Actions */}
+        {/* Featured Badge and RSVP Button */}
 
-        <View style={styles.rsvpActions}>
+        <View style={styles.actions}>
           {event.isFeatured && (
-            <View style={styles.featuredBadge}>
-              <Text
-                style={styles.featuredText}
-              >
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
                 Featured
               </Text>
             </View>
           )}
 
-          {/* RSVP Button */}
+          {/* RSVP / Going */}
 
           {canRSVP && (
             <Pressable
@@ -415,41 +454,32 @@ export default function EventCard({
                 (loadingRSVP || savingRSVP) &&
                   styles.disabledButton,
               ]}
-              onPress={() => {
-                void handleRSVP();
-              }}
-              disabled={
-                loadingRSVP || savingRSVP
-              }
+              onPress={() => void handleRSVP()}
+              disabled={loadingRSVP || savingRSVP}
               accessibilityRole="button"
-              accessibilityState={{
-                disabled:
-                  loadingRSVP || savingRSVP,
-                selected: going,
-                busy:
-                  loadingRSVP || savingRSVP,
-              }}
               accessibilityLabel={
                 going
                   ? "Cancel RSVP for this event"
                   : "RSVP to this event"
               }
+              accessibilityState={{
+                disabled: loadingRSVP || savingRSVP,
+                selected: going,
+                busy: loadingRSVP || savingRSVP,
+              }}
             >
               {loadingRSVP || savingRSVP ? (
                 <ActivityIndicator
                   size="small"
                   color={
-                    going
-                      ? "#FFFFFF"
-                      : "#3F6D3F"
+                    going ? "#FFFFFF" : "#3F6D3F"
                   }
                 />
               ) : (
                 <Text
                   style={[
                     styles.rsvpButtonText,
-                    going &&
-                      styles.goingButtonText,
+                    going && styles.goingButtonText,
                   ]}
                 >
                   {going ? "Going" : "RSVP"}
@@ -460,7 +490,9 @@ export default function EventCard({
         </View>
       </View>
 
-      {/* RSVP Error */}
+      {/* ----------------------------------------
+          RSVP Error
+      ---------------------------------------- */}
 
       {!!rsvpError && (
         <Text
@@ -479,16 +511,12 @@ export default function EventCard({
 // --------------------------------------------------
 
 const styles = StyleSheet.create({
-  // --------------------------------------------------
-  // Card
-  // --------------------------------------------------
-
   card: {
     width: 260,
-    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E0E6EB",
-    borderRadius: 11,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
     overflow: "hidden",
   },
 
@@ -503,103 +531,118 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     aspectRatio: 16 / 9,
-    backgroundColor: "#DFEDEA",
+    backgroundColor: "#E8EDF0",
   },
 
-  imagePlaceholder: {
+  placeholder: {
     width: "100%",
     aspectRatio: 16 / 9,
+    backgroundColor: "#DFEDEA",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#DFEDEA",
   },
 
   placeholderText: {
-    color: "#31988F",
-    fontSize: 19,
-    fontWeight: "800",
+    fontSize: 16,
+    fontWeight: "700",
+    color: theme.colors.primary,
     letterSpacing: 2,
   },
 
   // --------------------------------------------------
-  // Event Information
+  // Event Body
   // --------------------------------------------------
 
-  cardBody: {
-    paddingHorizontal: 13,
-    paddingTop: 13,
-    paddingBottom: 8,
+  body: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
   },
 
   date: {
-    color: "#31988F",
-    fontSize: 12,
+    fontSize: 11,
+    color: theme.colors.primary,
     fontWeight: "700",
-    marginBottom: 9,
-  },
-
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    lineHeight: 22,
-    minHeight: 44,
-    color: "#18232B",
     marginBottom: 10,
   },
 
+  title: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#1F2E22",
+    lineHeight: 22,
+    minHeight: 44,
+    marginBottom: 12,
+  },
+
   location: {
+    fontSize: 12,
     color: "#8290A4",
-    fontSize: 13,
-    lineHeight: 17,
-    minHeight: 34,
+    lineHeight: 18,
+    minHeight: 36,
+    marginBottom: 10,
+  },
+
+  hostLine: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+
+  hostName: {
+    fontWeight: "700",
+    color: "#4A5672",
   },
 
   // --------------------------------------------------
-  // Card Footer
+  // Divider
   // --------------------------------------------------
 
-  cardFooter: {
+  divider: {
+    height: 1,
+    backgroundColor: "#E5E9EE",
+    marginHorizontal: 16,
+  },
+
+  // --------------------------------------------------
+  // Footer
+  // --------------------------------------------------
+
+  footer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     gap: 8,
-
-    marginHorizontal: 13,
-    marginTop: 5,
-    paddingTop: 10,
-    paddingBottom: 13,
-
-    borderTopWidth: 1,
-    borderTopColor: "#E5E9EE",
   },
 
-  cost: {
+  price: {
     flexShrink: 1,
-    color: "#31988F",
-    fontSize: 13,
+    color: theme.colors.primary,
     fontWeight: "700",
+    fontSize: 13,
+  },
+
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    flexWrap: "wrap",
+    gap: 8,
   },
 
   // --------------------------------------------------
   // Featured Badge
   // --------------------------------------------------
 
-  rsvpActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 6,
-    flexWrap: "wrap",
-  },
-
-  featuredBadge: {
+  badge: {
     backgroundColor: "#D7EFEB",
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
 
-  featuredText: {
+  badgeText: {
     color: "#207E75",
     fontSize: 11,
     fontWeight: "700",
@@ -611,18 +654,15 @@ const styles = StyleSheet.create({
 
   rsvpButton: {
     minWidth: 64,
-    minHeight: 33,
-
+    minHeight: 34,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#3F6D3F",
     paddingHorizontal: 12,
-    paddingVertical: 7,
-
+    paddingVertical: 8,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-
-    backgroundColor: "#FFFFFF",
-    borderColor: "#3F6D3F",
-    borderWidth: 1,
-    borderRadius: 7,
   },
 
   rsvpButtonText: {
@@ -631,13 +671,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // --------------------------------------------------
-  // Going Button
-  // --------------------------------------------------
-
   goingButton: {
-    backgroundColor: "#3F6D3F",
-    borderColor: "#3F6D3F",
+    backgroundColor: "#4C7A45",
+    borderColor: "#4C7A45",
   },
 
   goingButtonText: {
@@ -653,11 +689,10 @@ const styles = StyleSheet.create({
   // --------------------------------------------------
 
   rsvpError: {
-    marginHorizontal: 13,
+    marginHorizontal: 16,
     marginBottom: 12,
     color: "#B42318",
     fontSize: 11,
     lineHeight: 16,
   },
 });
-

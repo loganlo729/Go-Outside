@@ -11,16 +11,16 @@ import type {
 
 import { MAX_IMAGE_BYTES } from "../utils/eventValidation";
 
-// --------------------------------------------------
-// Constants
-// --------------------------------------------------
+// ==================================================
+// CONSTANTS
+// ==================================================
 
 const FIELDS =
   "eventID,userID,categoryID,eventTitle,eventDescription,eventStartTime,eventEndTime,eventLocation,eventCost,eventImageURL,isFeatured,status";
 
-// --------------------------------------------------
-// Types
-// --------------------------------------------------
+// ==================================================
+// TYPES
+// ==================================================
 
 export type EventImage = {
   base64: string;
@@ -40,6 +40,77 @@ export type CreateEventInput = {
   isFeatured: boolean;
   status: "drafted" | "publicActive";
 };
+
+// ==================================================
+// HOST NAME LOOKUP
+// ==================================================
+
+// --------------------------------------------------
+// Attach Host Display Names to Events
+// --------------------------------------------------
+
+async function attachHostNames(
+  events: EventRecord[]
+): Promise<EventRecord[]> {
+  if (events.length === 0) {
+    return [];
+  }
+
+  // Collect unique organizer IDs.
+
+  const userIDs = [
+    ...new Set(
+      events
+        .map((event) => event.userID)
+        .filter((id): id is string => !!id)
+    ),
+  ];
+
+  if (userIDs.length === 0) {
+    return events;
+  }
+
+  // Fetch organizer profiles in one query.
+
+  const { data: profiles, error } = await supabase
+    .from("Profile")
+    .select("userID,displayName")
+    .in("userID", userIDs);
+
+  if (error) {
+    console.error(
+      "Unable to fetch event host names:",
+      error
+    );
+
+    return events;
+  }
+
+  // Map user IDs to their display names.
+
+  const hostNames = new Map<string, string>();
+
+  for (const profile of profiles ?? []) {
+    if (profile.displayName) {
+      hostNames.set(
+        profile.userID,
+        profile.displayName
+      );
+    }
+  }
+
+  // Attach hostName without modifying database rows.
+
+  return events.map((event) => ({
+    ...event,
+    hostName:
+      hostNames.get(event.userID) ?? null,
+  }));
+}
+
+// ==================================================
+// EVENT CATEGORIES
+// ==================================================
 
 // --------------------------------------------------
 // Fetch Event Categories
@@ -62,8 +133,12 @@ export async function getEventCategories(): Promise<
   return (data ?? []) as CategoryRecord[];
 }
 
+// ==================================================
+// EVENT FETCHING
+// ==================================================
+
 // --------------------------------------------------
-// Fetch Upcoming Events and Categories
+// Fetch Upcoming Published Events and Categories
 // --------------------------------------------------
 
 export async function getUpcomingEventsAndCategories(): Promise<{
@@ -100,9 +175,13 @@ export async function getUpcomingEventsAndCategories(): Promise<{
     throw categoriesResponse.error;
   }
 
+  const events = (eventsResponse.data ?? []) as EventRecord[];
+
   return {
-    events: (eventsResponse.data ?? []) as EventRecord[],
-    categories: (categoriesResponse.data ?? []) as CategoryRecord[],
+    events: await attachHostNames(events),
+    categories: (
+      categoriesResponse.data ?? []
+    ) as CategoryRecord[],
   };
 }
 
@@ -125,8 +204,48 @@ export async function getMyEvents(
     throw error;
   }
 
-  return (data ?? []) as EventRecord[];
+  return attachHostNames(
+    (data ?? []) as EventRecord[]
+  );
 }
+
+// --------------------------------------------------
+// Fetch a Single Event by ID
+// --------------------------------------------------
+
+export async function getEventByID(
+  eventID: string
+): Promise<EventRecord | null> {
+  if (!eventID) {
+    throw new Error("Missing event ID.");
+  }
+
+  const { data, error } = await supabase
+    .from("Event")
+    .select(FIELDS)
+    .eq("eventID", eventID)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Unable to load event: ${error.message}`
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const eventsWithHosts = await attachHostNames([
+    data as EventRecord,
+  ]);
+
+  return eventsWithHosts[0] ?? null;
+}
+
+// ==================================================
+// EVENT CREATION
+// ==================================================
 
 // --------------------------------------------------
 // Create Event with Optional Photo
@@ -136,6 +255,10 @@ export async function createEvent(
   input: CreateEventInput,
   photo: EventImage | null = null
 ) {
+  // ----------------------------------------
+  // Verify Authentication
+  // ----------------------------------------
+
   const {
     data: { user },
     error: authError,
@@ -154,7 +277,9 @@ export async function createEvent(
   let uploadedPath: string | null = null;
   let imageURL: string | null = null;
 
-  // Validate and upload photo.
+  // ----------------------------------------
+  // Validate and Upload Photo
+  // ----------------------------------------
 
   if (photo) {
     const validMimeTypes = [
@@ -181,15 +306,20 @@ export async function createEvent(
           ? "png"
           : "webp";
 
-    const path = `${user.id}/${Crypto.randomUUID()}.${extension}`;
+    const path =
+      `${user.id}/${Crypto.randomUUID()}.${extension}`;
 
     const { data, error } = await supabase.storage
       .from("events")
-      .upload(path, decode(photo.base64), {
-        contentType: photo.mimeType,
-        cacheControl: "3600",
-        upsert: false,
-      });
+      .upload(
+        path,
+        decode(photo.base64),
+        {
+          contentType: photo.mimeType,
+          cacheControl: "3600",
+          upsert: false,
+        }
+      );
 
     if (error) {
       throw error;
@@ -202,7 +332,9 @@ export async function createEvent(
       .getPublicUrl(data.path).data.publicUrl;
   }
 
-  // Save event in database.
+  // ----------------------------------------
+  // Insert Event into Database
+  // ----------------------------------------
 
   const { data, error } = await supabase
     .from("Event")
@@ -214,7 +346,9 @@ export async function createEvent(
     .select("eventID")
     .single();
 
-  // Clean up uploaded image if insert fails.
+  // ----------------------------------------
+  // Clean Up Image if Insert Fails
+  // ----------------------------------------
 
   if (error) {
     if (uploadedPath) {
@@ -237,15 +371,15 @@ export async function createEvent(
 }
 
 // ==================================================
-// RSVP FUNCTIONS
+// RSVP FUNCTIONALITY
 // ==================================================
 
 // --------------------------------------------------
-// Notify Multiple Cards of RSVP Changes
+// RSVP Change Notifications
 // --------------------------------------------------
 
-// An event may appear in both Featured and its category.
-// This keeps both displayed cards synchronized.
+// An event can appear in multiple sections.
+// Notifications keep those cards synchronized.
 
 type RSVPListener = (
   eventID: string,
@@ -254,6 +388,10 @@ type RSVPListener = (
 ) => void;
 
 const rsvpListeners = new Set<RSVPListener>();
+
+// --------------------------------------------------
+// Subscribe to RSVP Changes
+// --------------------------------------------------
 
 export function subscribeToRSVPChanges(
   listener: RSVPListener
@@ -265,11 +403,15 @@ export function subscribeToRSVPChanges(
   };
 }
 
+// --------------------------------------------------
+// Notify RSVP Subscribers
+// --------------------------------------------------
+
 function notifyRSVPChange(
   eventID: string,
   userID: string,
   going: boolean
-) {
+): void {
   rsvpListeners.forEach((listener) => {
     listener(eventID, userID, going);
   });
@@ -322,7 +464,11 @@ export async function addEventRSVP(
     throw error;
   }
 
-  notifyRSVPChange(eventID, userID, true);
+  notifyRSVPChange(
+    eventID,
+    userID,
+    true
+  );
 }
 
 // --------------------------------------------------
@@ -350,33 +496,44 @@ export async function removeEventRSVP(
     );
   }
 
-  notifyRSVPChange(eventID, userID, false);
+  notifyRSVPChange(
+    eventID,
+    userID,
+    false
+  );
 }
 
-
-
 // --------------------------------------------------
-// Get Upcoming Events the User RSVP'd To
+// Fetch Upcoming Events the User RSVP'd To
 // --------------------------------------------------
 
 export async function getMyUpcomingRSVPEvents(
   userID: string
 ): Promise<EventRecord[]> {
-  // Get active RSVP records for this user.
+  // ----------------------------------------
+  // Fetch Active RSVP Records
+  // ----------------------------------------
 
-  const { data: rsvps, error: rsvpError } = await supabase
-    .from("RSVP")
-    .select("eventID")
-    .eq("userID", userID)
-    .eq("rsvpStatus", "going");
+  const { data: rsvps, error: rsvpError } =
+    await supabase
+      .from("RSVP")
+      .select("eventID")
+      .eq("userID", userID)
+      .eq("rsvpStatus", "going");
 
   if (rsvpError) {
     throw rsvpError;
   }
 
+  // ----------------------------------------
+  // Collect Unique Event IDs
+  // ----------------------------------------
+
   const eventIDs = [
     ...new Set(
-      (rsvps ?? []).map((rsvp) => rsvp.eventID)
+      (rsvps ?? []).map(
+        (rsvp) => rsvp.eventID
+      )
     ),
   ];
 
@@ -384,14 +541,19 @@ export async function getMyUpcomingRSVPEvents(
     return [];
   }
 
-  // Fetch the corresponding upcoming published events.
+  // ----------------------------------------
+  // Fetch Upcoming Published Events
+  // ----------------------------------------
 
   const { data, error } = await supabase
     .from("Event")
     .select(FIELDS)
     .in("eventID", eventIDs)
     .eq("status", "publicActive")
-    .gte("eventStartTime", new Date().toISOString())
+    .gte(
+      "eventStartTime",
+      new Date().toISOString()
+    )
     .order("eventStartTime", {
       ascending: true,
     });
@@ -400,34 +562,7 @@ export async function getMyUpcomingRSVPEvents(
     throw error;
   }
 
-  return (data ?? []) as EventRecord[];
+  return attachHostNames(
+    (data ?? []) as EventRecord[]
+  );
 }
-
-
-export async function getEventByID(
-  eventID: string
-): Promise<EventRecord | null> {
-  if (!eventID) {
-    throw new Error("Missing event ID.");
-  }
-
-  const { data, error } = await supabase
-    .from("Event")
-    .select(
-      "eventID,userID,categoryID,eventTitle,eventDescription,eventStartTime,eventEndTime,eventLocation,eventCost,eventImageURL,isFeatured,status"
-    )
-    .eq("eventID", eventID)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(
-      `Unable to load event: ${error.message}`
-    );
-  }
-
-  return data as EventRecord | null;
-}
-
-
-
-

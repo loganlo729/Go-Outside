@@ -108,6 +108,10 @@ export default function EventCard({
 
   const isPublished = event.status === "publicActive";
 
+  const isUpcoming = !!event.eventStartTime && new Date(event.eventStartTime).getTime() > Date.now();
+
+  const canRSVP = isPublished && isUpcoming;
+
   // --------------------------------------------------
   // Load RSVP Status and Subscribe to Changes
   // --------------------------------------------------
@@ -229,7 +233,7 @@ export default function EventCard({
 
   async function handleRSVP() {
     if (
-      !isPublished ||
+      !canRSVP ||
       loadingRSVP ||
       savingRSVP
     ) {
@@ -357,7 +361,7 @@ export default function EventCard({
               </span>
             )}
 
-            {isPublished && (
+            {canRSVP && (
               <button
                 type="button"
                 className={

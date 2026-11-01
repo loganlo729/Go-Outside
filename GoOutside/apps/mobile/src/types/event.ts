@@ -10,6 +10,7 @@ export type EventRecord = {
   eventImageURL: string | null; 
   isFeatured: boolean; 
   status: string;
+  hostName?: string | null;
 };
 
 export type CategoryRecord = { categoryID: string; categoryName: string };

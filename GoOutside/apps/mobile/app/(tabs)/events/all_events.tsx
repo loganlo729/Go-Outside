@@ -1,6 +1,9 @@
 
-import React, { useMemo, useState } from "react";
-import { useRouter } from "expo-router";
+import React, {
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   ActivityIndicator,
@@ -13,50 +16,109 @@ import {
   View,
 } from "react-native";
 
+import {
+  useFocusEffect,
+  useRouter,
+} from "expo-router";
+
 import AppSearchInput from "../../../src/components/ui/AppSearchInput";
 import EventFilters from "../../../src/components/events/EventFilters";
 import EventSection from "../../../src/components/events/EventSection";
 
 import { theme } from "../../../src/constants/theme";
-import { useEvents } from "../../../src/hooks/useEvents";
-import type { DateFilter } from "../../../src/types/event";
+
+import {
+  getUpcomingEventsAndCategories,
+} from "../../../src/services/events";
+
+import type {
+  CategoryRecord,
+  DateFilter,
+  EventRecord,
+} from "../../../src/types/event";
+
+// --------------------------------------------------
+// All Events Screen
+// --------------------------------------------------
 
 export default function AllEventsScreen() {
   const router = useRouter();
 
-  const {
-    events,
-    categories,
-    loading,
-    refreshing,
-    error,
-    refresh,
-    retry,
-  } = useEvents();
+  // --------------------------------------------------
+  // State
+  // --------------------------------------------------
+
+  const [events, setEvents] = useState<EventRecord[]>([]);
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
 
   const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] =
-    useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
-  const [dateFilter, setDateFilter] =
-    useState<DateFilter>("all");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
-  // Filter database events
+  // --------------------------------------------------
+  // Fetch Upcoming Events and Categories
+  // --------------------------------------------------
+
+  const loadEvents = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    setError("");
+
+    try {
+      const result = await getUpcomingEventsAndCategories();
+
+      setEvents(result.events);
+      setCategories(result.categories);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load events."
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  // --------------------------------------------------
+  // Refresh When Screen Receives Focus
+  // --------------------------------------------------
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadEvents();
+    }, [loadEvents])
+  );
+
+  // --------------------------------------------------
+  // Filter Events
+  // --------------------------------------------------
+
   const filteredEvents = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
     const now = new Date();
-    const deadline = new Date(now);
+    const end = new Date(now);
+
+    // Date ranges.
 
     if (dateFilter === "twoWeeks") {
-      deadline.setDate(deadline.getDate() + 14);
+      end.setDate(end.getDate() + 14);
+    } else if (dateFilter === "month") {
+      end.setMonth(end.getMonth() + 1);
     }
 
-    if (dateFilter === "month") {
-      deadline.setMonth(deadline.getMonth() + 1);
-    }
+    const query = search.trim().toLowerCase();
 
     return events.filter((event) => {
+      // Search matching.
       const matchesSearch =
         !query ||
         [
@@ -67,20 +129,23 @@ export default function AllEventsScreen() {
           (value ?? "").toLowerCase().includes(query)
         );
 
+      // Category matching.
       const matchesCategory =
         selectedCategory === "all" ||
         event.categoryID === selectedCategory;
 
-      const date = event.eventStartTime
+      // Date matching.
+
+      const startDate = event.eventStartTime
         ? new Date(event.eventStartTime)
         : null;
 
       const matchesDate =
         dateFilter === "all" ||
-        Boolean(
-          date &&
-          date >= now &&
-          date <= deadline
+        (
+          !!startDate &&
+          startDate >= now &&
+          startDate <= end
         );
 
       return (
@@ -96,65 +161,45 @@ export default function AllEventsScreen() {
     dateFilter,
   ]);
 
-  const featuredEvents = useMemo(
-    () => filteredEvents.filter(
-      (event) => event.isFeatured
-    ),
-    [filteredEvents]
-  );
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator
-          size="large"
-          color={theme.colors.primary}
-        />
-        <Text style={styles.loading}>
-          Loading events...
-        </Text>
-      </SafeAreaView>
-    );
-  }
+  // --------------------------------------------------
+  // Render
+  // --------------------------------------------------
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
-        style={styles.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={refresh}
+            onRefresh={() => void loadEvents(true)}
             tintColor={theme.colors.primary}
           />
         }
       >
-        <Text style={styles.header}>
-          Events
-        </Text>
+        {/* ----------------------------------------
+            Dashboard Navigation
+        ---------------------------------------- */}
 
-        <AppSearchInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search local events..."
-        />
-
-        {/* Dashboard navigation */}
         <View style={styles.tabs}>
+          {/* All Events - Active */}
           <View style={styles.activeTab}>
             <Text style={styles.activeTabText}>
               All Events
             </Text>
           </View>
 
+          {/* My Events - Inactive */}
+
           <Pressable
             style={styles.inactiveTab}
             onPress={() =>
-              router.push("/events/my_events")
+              router.replace("/events/my_events")
             }
             accessibilityRole="button"
+            accessibilityLabel="My Events"
           >
             <Text style={styles.inactiveTabText}>
               My Events
@@ -162,7 +207,28 @@ export default function AllEventsScreen() {
           </Pressable>
         </View>
 
-        {/* Reusable filters */}
+        {/* ----------------------------------------
+            Page Heading
+        ---------------------------------------- */}
+
+        <Text style={styles.heading}>
+          All Events
+        </Text>
+
+        {/* ----------------------------------------
+            Search Bar
+        ---------------------------------------- */}
+
+        <AppSearchInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search all events..."
+        />
+
+        {/* ----------------------------------------
+            Category and Date Filters
+        ---------------------------------------- */}
+
         <EventFilters
           categories={categories}
           selectedCategory={selectedCategory}
@@ -171,51 +237,59 @@ export default function AllEventsScreen() {
           onSelectDate={setDateFilter}
         />
 
-        {/* Database errors */}
-        {!!error && (
+        {/* ----------------------------------------
+            Event Sections
+        ---------------------------------------- */}
+
+        {loading ? (
           <View style={styles.message}>
-            <Text style={styles.error}>
+            <ActivityIndicator
+              size="large"
+              color={theme.colors.primary}
+            />
+
+            <Text style={styles.messageText}>
+              Loading events...
+            </Text>
+          </View>
+        ) : error ? (
+          <View style={styles.message}>
+            <Text style={styles.errorText}>
               {error}
             </Text>
 
             <Pressable
-              onPress={retry}
+              onPress={() => void loadEvents()}
               accessibilityRole="button"
             >
-              <Text style={styles.retry}>
+              <Text style={styles.retryText}>
                 Retry
               </Text>
             </Pressable>
           </View>
-        )}
-
-        {/* Empty state */}
-        {!error && filteredEvents.length === 0 && (
+        ) : filteredEvents.length === 0 ? (
           <View style={styles.message}>
-            <Text style={styles.emptyTitle}>
-              No events found
-            </Text>
-
-            <Text style={styles.emptyText}>
-              Try adjusting your search or filters.
+            <Text style={styles.messageText}>
+              No events found. Try adjusting your search or filters.
             </Text>
           </View>
-        )}
-
-        {/* Horizontally scrollable sections */}
-        {!error && (
+        ) : (
           <>
+            {/* Featured Events */}
             <EventSection
               title="Featured"
-              data={featuredEvents}
+              data={filteredEvents.filter(
+                (event) => event.isFeatured
+              )}
             />
+
+            {/* Category Event Sections */}
 
             {categories
               .filter(
                 (category) =>
                   selectedCategory === "all" ||
-                  selectedCategory ===
-                    category.categoryID
+                  category.categoryID === selectedCategory
               )
               .map((category) => (
                 <EventSection
@@ -223,8 +297,7 @@ export default function AllEventsScreen() {
                   title={category.categoryName}
                   data={filteredEvents.filter(
                     (event) =>
-                      event.categoryID ===
-                      category.categoryID
+                      event.categoryID === category.categoryID
                   )}
                 />
               ))}
@@ -237,105 +310,108 @@ export default function AllEventsScreen() {
   );
 }
 
+// --------------------------------------------------
+// Styles
+// --------------------------------------------------
+
 const styles = StyleSheet.create({
+  // --------------------------------------------------
+  // Page
+  // --------------------------------------------------
+
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
   },
 
-  scroll: {
-    flex: 1,
+  scrollContent: {
+    paddingBottom: 30,
   },
 
-  center: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  loading: {
-    marginTop: 12,
-    color: theme.colors.secondaryText,
-    fontSize: 14,
-  },
-
-  header: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: theme.colors.text,
-    marginHorizontal: 24,
-    marginTop: 24,
-    marginBottom: 18,
-  },
+  // --------------------------------------------------
+  // Navigation Tabs
+  // --------------------------------------------------
 
   tabs: {
     height: 52,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
     flexDirection: "row",
-    paddingHorizontal: 24,
     alignItems: "center",
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
 
   activeTab: {
     height: "100%",
     justifyContent: "center",
     borderBottomWidth: 2,
-    borderBottomColor: theme.colors.primary,
+    borderBottomColor: "#31988F",
     marginRight: 25,
   },
 
   activeTabText: {
-    color: theme.colors.primary,
-    fontWeight: "700",
     fontSize: 14,
+    fontWeight: "700",
+    color: "#31988F",
   },
 
   inactiveTab: {
     height: "100%",
     justifyContent: "center",
+    marginRight: 25,
   },
 
   inactiveTabText: {
+    fontSize: 14,
     color: "#53617A",
-    fontSize: 14,
   },
 
-  message: {
-    padding: 24,
-    alignItems: "center",
-  },
+  // --------------------------------------------------
+  // Heading
+  // --------------------------------------------------
 
-  error: {
-    color: theme.colors.error,
-    marginBottom: 12,
-    textAlign: "center",
-    fontSize: 13,
-  },
-
-  retry: {
-    color: theme.colors.primary,
-    fontWeight: "700",
-    fontSize: 14,
-  },
-
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+  heading: {
+    marginTop: 28,
+    marginBottom: 16,
+    marginHorizontal: 24,
+    fontSize: 30,
+    fontWeight: "800",
     color: theme.colors.text,
   },
 
-  emptyText: {
-    fontSize: 13,
-    color: theme.colors.secondaryText,
-    marginTop: 8,
-    textAlign: "center",
+  // --------------------------------------------------
+  // Messages
+  // --------------------------------------------------
+
+  message: {
+    paddingHorizontal: 24,
+    paddingVertical: 35,
+    alignItems: "center",
+    gap: 12,
   },
+
+  messageText: {
+    color: theme.colors.secondaryText,
+    textAlign: "center",
+    fontSize: 14,
+  },
+
+  errorText: {
+    color: theme.colors.error,
+    textAlign: "center",
+    fontSize: 14,
+  },
+
+  retryText: {
+    color: theme.colors.primary,
+    fontWeight: "700",
+  },
+
+  // --------------------------------------------------
+  // Bottom Spacing
+  // --------------------------------------------------
 
   bottom: {
     height: 35,
   },
 });
-
