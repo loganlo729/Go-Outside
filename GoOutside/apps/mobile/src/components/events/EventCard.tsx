@@ -1,4 +1,4 @@
-
+// React hooks
 import React, {
   useCallback,
   useEffect,
@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 
+// UI components
 import {
   ActivityIndicator,
   Image,
@@ -15,27 +16,35 @@ import {
   View,
 } from "react-native";
 
+// Navigation hooks
 import {
   useFocusEffect,
   useRouter,
 } from "expo-router";
 
+// Supabase client
 import { supabase } from "../../lib/supabase";
+
+// App theme
 import { theme } from "../../constants/theme";
 
+// Event type
 import type { EventRecord } from "../../types/event";
 
+// Formatting utilities
 import {
   formatEventCost,
   formatEventDate,
 } from "../../utils/eventFormat";
 
+// RSVP services
 import {
   addEventRSVP,
   getEventRSVP,
   removeEventRSVP,
   subscribeToRSVPChanges,
 } from "../../services/events";
+
 
 // --------------------------------------------------
 // Props

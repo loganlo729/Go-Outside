@@ -1,10 +1,11 @@
-
+// React hooks
 import React, {
   useCallback,
   useEffect,
   useState,
 } from "react";
 
+// UI components
 import {
   ActivityIndicator,
   Pressable,
@@ -16,29 +17,37 @@ import {
   View,
 } from "react-native";
 
+// Icons and safe areas
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+// Navigation hooks
 import {
   useFocusEffect,
   useRouter,
 } from "expo-router";
 
+// Supabase client
 import { supabase } from "../../../src/lib/supabase";
 
+// Event sections
 import EventSection from "../../../src/components/events/EventSection";
 
+// App theme
 import { theme } from "../../../src/constants/theme";
 
+// Event fetching and RSVP updates
 import {
   getMyEvents,
   getMyUpcomingRSVPEvents,
   subscribeToRSVPChanges,
 } from "../../../src/services/events";
 
+// Event type
 import type {
   EventRecord,
 } from "../../../src/types/event";
+
 
 // --------------------------------------------------
 // My Events Screen

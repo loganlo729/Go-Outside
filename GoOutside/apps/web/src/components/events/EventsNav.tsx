@@ -1,14 +1,17 @@
-
 "use client";
 
+// Navigation component
 import Link from "next/link";
 
+// Navigation hooks
 import {
   usePathname,
   useSearchParams,
 } from "next/navigation";
 
+// Component styles
 import styles from "./EventDashboard.module.css";
+
 
 // --------------------------------------------------
 // Events Navigation

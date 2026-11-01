@@ -1,30 +1,36 @@
-
 "use client";
 
+// React hooks
 import {
   useEffect,
   useState,
 } from "react";
 
+// Navigation
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 
+// Event services
 import {
   getEventByID,
   getEventCategories,
 } from "../../../services/events";
 
+// Event type
 import type {
   EventRecord,
 } from "../../../types/event";
 
+// Formatting utilities
 import {
   formatEventCost,
   formatEventDate,
 } from "../../../utils/eventFormat";
 
+// Component styles
 import styles from "./EventDetails.module.css";
+
 
 // --------------------------------------------------
 // Event Details Page

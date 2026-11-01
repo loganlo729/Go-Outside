@@ -1,6 +1,7 @@
-
+// React hooks
 import React, { useEffect, useState } from "react";
 
+// UI components
 import {
   ActivityIndicator,
   Pressable,
@@ -10,7 +11,9 @@ import {
   View,
 } from "react-native";
 
+// App theme
 import { theme } from "../../constants/theme";
+
 
 // --------------------------------------------------
 // Types and Configuration
@@ -20,7 +23,7 @@ type Suggestion = {
   formatted: string;
 };
 
-const ENDPOINT = process.env.GEOAPIFY_API_KEY;
+const ENDPOINT = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY
 
 // --------------------------------------------------
 // Address Autocomplete
@@ -152,8 +155,7 @@ export default function AddressAutocomplete({
 
       {!ENDPOINT && (
         <Text style={styles.message}>
-          Autocomplete needs GEOAPIFY_API_KEY;
-          manual entry still works.
+          Autocomplete unavailable. Please enter your address manually.
         </Text>
       )}
 

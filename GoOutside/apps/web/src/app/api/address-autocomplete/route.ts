@@ -1,15 +1,22 @@
-
+// Next.js API utilities
 import { NextRequest, NextResponse } from "next/server";
 
+// --------------------------------------------------
+// Address Autocomplete API
+// --------------------------------------------------
+
 export async function GET(request: NextRequest) {
+  // Get search query
   const query = request.nextUrl.searchParams
     .get("text")
     ?.trim();
 
+  // Require at least 3 characters
   if (!query || query.length < 3) {
     return NextResponse.json({ results: [] });
   }
 
+  // Limit query length
   if (query.length > 150) {
     return NextResponse.json(
       { error: "Search text is too long." },
@@ -17,6 +24,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Retrieve API key
   const apiKey = process.env.GEOAPIFY_API_KEY;
 
   if (!apiKey) {
@@ -26,6 +34,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Configure Geoapify request
   const params = new URLSearchParams({
     text: query,
     format: "json",
@@ -35,6 +44,7 @@ export async function GET(request: NextRequest) {
   });
 
   try {
+    // Fetch address suggestions
     const response = await fetch(
       `https://api.geoapify.com/v1/geocode/autocomplete?${params}`,
       {
@@ -42,12 +52,15 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    // Check API response
     if (!response.ok) {
       throw new Error("Address provider request failed.");
     }
 
+    // Parse response data
     const data = await response.json();
 
+    // Extract valid addresses
     const results = (data.results ?? [])
       .filter(
         (result: { formatted?: string }) =>
@@ -65,10 +78,13 @@ export async function GET(request: NextRequest) {
         })
       );
 
+    // Return address suggestions
     return NextResponse.json({ results });
   } catch (error) {
+    // Log API errors
     console.error("Address autocomplete error:", error);
 
+    // Return failure response
     return NextResponse.json(
       { error: "Unable to retrieve address suggestions." },
       { status: 502 }

@@ -1,9 +1,12 @@
+// Event filter types
 import type {
   CategoryRecord,
   DateFilter,
 } from "../../types/event";
 
+// Component styles
 import styles from "./EventDashboard.module.css";
+
 
 export default function EventFilters({
   categories,

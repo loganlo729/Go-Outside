@@ -1,36 +1,44 @@
-
+// React hooks
 import React, {
   useCallback,
   useMemo,
   useState,
 } from "react";
 
+// UI components
 import {
   ActivityIndicator,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
+// Safe area
+import { SafeAreaView } from "react-native-safe-area-context";
+
+// Navigation hooks
 import {
   useFocusEffect,
   useRouter,
 } from "expo-router";
 
+// Event components
 import AppSearchInput from "../../../src/components/ui/AppSearchInput";
 import EventFilters from "../../../src/components/events/EventFilters";
 import EventSection from "../../../src/components/events/EventSection";
 
+// App theme
 import { theme } from "../../../src/constants/theme";
 
+// Event fetching
 import {
   getUpcomingEventsAndCategories,
 } from "../../../src/services/events";
 
+// Event and filter types
 import type {
   CategoryRecord,
   DateFilter,

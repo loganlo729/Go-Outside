@@ -1,4 +1,3 @@
-
 import { getSupabaseClient } from "../lib/supabase/client";
 
 import type {
@@ -433,9 +432,12 @@ export async function getMyUpcomingRSVPEvents(
 
   const eventIDs = [
     ...new Set(
-      (rsvps ?? []).map((rsvp) => rsvp.eventID)
+      (rsvps ?? []).map(
+        (rsvp: { eventID: string }) => rsvp.eventID
+      )
     ),
   ];
+
 
   // No active RSVPs means no upcoming events.
 

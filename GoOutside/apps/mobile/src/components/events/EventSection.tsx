@@ -1,6 +1,7 @@
-
+// React
 import React from "react";
 
+// UI components
 import {
   ScrollView,
   StyleSheet,
@@ -8,11 +9,15 @@ import {
   View,
 } from "react-native";
 
+// App theme
 import { theme } from "../../constants/theme";
 
+// Event type
 import type { EventRecord } from "../../types/event";
 
+// Event card component
 import EventCard from "./EventCard";
+
 
 // --------------------------------------------------
 // Event Section Props

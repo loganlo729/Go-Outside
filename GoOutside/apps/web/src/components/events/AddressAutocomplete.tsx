@@ -4,7 +4,6 @@
 import { useEffect, useState } from "react";
 
 import styles from "./AddressAutocomplete.module.css";
-//import styles from "./EventDashboard.module.css";
 
 // --------------------------------------------------
 // Types

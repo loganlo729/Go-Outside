@@ -1,9 +1,12 @@
-
+// Event type
 import type { EventRecord } from "../../types/event";
 
+// Event card component
 import EventCard from "./EventCard";
 
+// Component styles
 import styles from "./EventDashboard.module.css";
+
 
 // --------------------------------------------------
 // Event Section Props

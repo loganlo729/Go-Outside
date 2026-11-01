@@ -1,6 +1,6 @@
-
 "use client";
 
+// React hooks
 import {
   useCallback,
   useEffect,
@@ -8,11 +8,14 @@ import {
   useState,
 } from "react";
 
+// Event type
 import type { ChangeEvent } from "react";
 
+// Navigation
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+// Event services
 import {
   createEvent,
   eventClient,
@@ -21,10 +24,15 @@ import {
   validateEventImage,
 } from "../../../services/events";
 
+// Category type
 import type { CategoryRecord } from "../../../types/event";
 
+// Component styles
 import styles from "./CreateEvent.module.css";
+
+// Address autocomplete
 import AddressAutocomplete from "../../../components/events/AddressAutocomplete";
+
 
 // --------------------------------------------------
 // Types

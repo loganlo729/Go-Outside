@@ -1,14 +1,22 @@
+
 "use client";
 
+// React hooks
 import { useMemo, useState } from "react";
 
+// Event components
 import EventFilters from "../../../components/events/EventFilters";
 import EventSection from "../../../components/events/EventSection";
+
+// Events hook
 import { useEvents } from "../../../hooks/useEvents";
 
+// Date filter type
 import type { DateFilter } from "../../../types/event";
 
+// Component styles
 import styles from "../../../components/events/EventDashboard.module.css";
+
 
 export default function AllEventsPage() {
   // --------------------------------------------------

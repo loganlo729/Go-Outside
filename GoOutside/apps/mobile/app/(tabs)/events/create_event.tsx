@@ -1,12 +1,12 @@
-
+// React hooks
 import React, { useEffect, useState } from "react";
 
+// UI components
 import {
   ActivityIndicator,
   Image,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -15,28 +15,37 @@ import {
   View,
 } from "react-native";
 
+// Safe area
+import { SafeAreaView } from "react-native-safe-area-context";
 
+// Date and time pickers
 import DateTimePicker, {
   DateTimePickerAndroid,
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 
-
+// Image selection
 import * as ImagePicker from "expo-image-picker";
+
+// Navigation
 import { useRouter } from "expo-router";
 
+// Address autocomplete
 import AddressAutocomplete from "../../../src/components/events/AddressAutocomplete";
 
+// Event services
 import {
   createEvent,
   getEventCategories,
   type EventImage,
 } from "../../../src/services/events";
 
+// Category type
 import type {
   CategoryRecord,
 } from "../../../src/types/event";
 
+// Event validation
 import {
   MAX_COST,
   MAX_DESCRIPTION,
@@ -49,8 +58,12 @@ import {
   type EventDateTime,
 } from "../../../src/utils/eventValidation";
 
+// Supabase client
 import { supabase } from "../../../src/lib/supabase";
+
+// App theme
 import { theme } from "../../../src/constants/theme";
+
 
 // --------------------------------------------------
 // Constants and Types

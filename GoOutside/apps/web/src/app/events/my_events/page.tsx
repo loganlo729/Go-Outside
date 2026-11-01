@@ -1,16 +1,19 @@
-
 "use client";
 
+// React hooks
 import {
   useCallback,
   useEffect,
   useState,
 } from "react";
 
+// Navigation
 import Link from "next/link";
 
+// Event components
 import EventSection from "../../../components/events/EventSection";
 
+// Event and RSVP services
 import {
   eventClient,
   getMyEvents,
@@ -18,10 +21,12 @@ import {
   subscribeToRSVPChanges,
 } from "../../../services/events";
 
+// Event type
 import type {
   EventRecord,
 } from "../../../types/event";
 
+// Component styles
 import styles from "../../../components/events/EventDashboard.module.css";
 
 // --------------------------------------------------

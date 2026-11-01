@@ -1,9 +1,10 @@
-
+// React hooks
 import React, {
   useCallback,
   useState,
 } from "react";
 
+// UI components
 import {
   ActivityIndicator,
   Image,
@@ -14,29 +15,36 @@ import {
   View,
 } from "react-native";
 
+// Navigation hooks
 import {
   useFocusEffect,
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
 
+// Icons
 import { Ionicons } from "@expo/vector-icons";
 
+// Event services
 import {
   getEventByID,
   getEventCategories,
 } from "../../../src/services/events";
 
+// Event type
 import type {
   EventRecord,
 } from "../../../src/types/event";
 
+// Formatting utilities
 import {
   formatEventCost,
   formatEventDate,
 } from "../../../src/utils/eventFormat";
 
+// Supabase client
 import { supabase } from "../../../src/lib/supabase";
+
 
 // --------------------------------------------------
 // Event Details Screen

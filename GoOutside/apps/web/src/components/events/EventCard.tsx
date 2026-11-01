@@ -1,18 +1,22 @@
-
 "use client";
 
+// React hooks
 import { useEffect, useState } from "react";
 
+// Navigation
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+// Event type
 import type { EventRecord } from "../../types/event";
 
+// Formatting utilities
 import {
   formatEventCost,
   formatEventDate,
 } from "../../utils/eventFormat";
 
+// Event and RSVP services
 import {
   addEventRSVP,
   eventClient,
@@ -21,7 +25,9 @@ import {
   subscribeToRSVPChanges,
 } from "../../services/events";
 
+// Component styles
 import styles from "./EventDashboard.module.css";
+
 
 // --------------------------------------------------
 // Title Formatting

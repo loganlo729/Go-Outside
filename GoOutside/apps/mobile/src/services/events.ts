@@ -1,15 +1,21 @@
-
+// Image decoding
 import { decode } from "base64-arraybuffer";
+
+// UUID generation
 import * as Crypto from "expo-crypto";
 
+// Supabase client
 import { supabase } from "../lib/supabase";
 
+// Event and category types
 import type {
   CategoryRecord,
   EventRecord,
 } from "../types/event";
 
+// Image validation
 import { MAX_IMAGE_BYTES } from "../utils/eventValidation";
+
 
 // ==================================================
 // CONSTANTS

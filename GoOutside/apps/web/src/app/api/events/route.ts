@@ -1,7 +1,12 @@
+// Next.js API response
 import { NextResponse } from "next/server";
+
+// Supabase client
 import { getSupabaseClient } from "@/src/lib/supabase/client";
 
+// Disable route caching
 export const dynamic = "force-dynamic";
+
 
 // GET all events, with optional filters
 export async function GET(request: Request) {
