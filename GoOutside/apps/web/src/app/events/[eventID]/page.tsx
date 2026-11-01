@@ -8,6 +8,7 @@ import {
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 import {
   getEventByID,
@@ -33,6 +34,20 @@ export default function EventDetailsPage() {
   const { eventID } = useParams<{
     eventID: string;
   }>();
+
+  // --------------------------------------------------
+  // Determine Which Events Dashboard User Came From
+  // --------------------------------------------------
+
+  const searchParams = useSearchParams();
+
+  const from =
+    searchParams.get("from") === "my_events"
+      ? "my_events"
+      : "all_events";
+
+  const backHref = `/events/${from}`;
+
 
   // --------------------------------------------------
   // State
@@ -132,7 +147,7 @@ export default function EventDetailsPage() {
 
         <div className={styles.navigation}>
           <Link
-            href="/events/all_events"
+            href={backHref}
             className={styles.backLink}
           >
             ← Back to Events
@@ -168,7 +183,7 @@ export default function EventDetailsPage() {
               This event no longer exists.
             </p>
 
-            <Link href="/events/all_events">
+            <Link href={backHref}>
               Browse Events
             </Link>
           </div>

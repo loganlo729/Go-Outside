@@ -255,10 +255,16 @@
    Rendered from app/events/layout.tsx
 -------------------------------------------------- */
 
+/* --------------------------------------------------
+   Shared Events Navigation
+-------------------------------------------------- */
+
 .tabs {
-  max-width: 1244px;
-  margin: 16px auto 0;
+  width: 100%;
+  max-width: none;
+  margin: 16px 0 0;
   padding: 0 28px;
+  box-sizing: border-box;
 }
 
 /* --------------------------------------------------

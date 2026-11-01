@@ -43,6 +43,7 @@ import {
 
 type EventCardProps = {
   event: EventRecord;
+  from?: "all_events" | "my_events";
 };
 
 // --------------------------------------------------
@@ -68,6 +69,7 @@ function formatEventTitle(
 
 export default function EventCard({
   event,
+  from = "all_events",
 }: EventCardProps) {
   const router = useRouter();
 
@@ -112,6 +114,7 @@ export default function EventCard({
       pathname: "/events/[eventID]",
       params: {
         eventID: event.eventID,
+        from,
       },
     });
   }

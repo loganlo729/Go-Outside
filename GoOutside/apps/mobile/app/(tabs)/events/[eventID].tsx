@@ -39,15 +39,38 @@ import {
 import { supabase } from "../../../src/lib/supabase";
 
 // --------------------------------------------------
-// Event Details
+// Event Details Screen
 // --------------------------------------------------
 
 export default function EventDetailsScreen() {
   const router = useRouter();
 
-  const { eventID } = useLocalSearchParams<{
+  // --------------------------------------------------
+  // Route Parameters
+  // --------------------------------------------------
+
+  const { eventID, from } = useLocalSearchParams<{
     eventID: string;
+    from?: string;
   }>();
+
+  // --------------------------------------------------
+  // Determine Originating Dashboard
+  // --------------------------------------------------
+
+  const activeDashboard =
+    from === "my_events"
+      ? "my_events"
+      : "all_events";
+
+  const backPath =
+    activeDashboard === "my_events"
+      ? "/events/my_events"
+      : "/events/all_events";
+
+  function backToEvents() {
+    router.replace(backPath);
+  }
 
   // --------------------------------------------------
   // State
@@ -66,18 +89,24 @@ export default function EventDetailsScreen() {
   const [error, setError] = useState("");
 
   // --------------------------------------------------
-  // Load Event
+  // Load Event Details When Screen Receives Focus
   // --------------------------------------------------
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
 
-      async function load() {
+      async function loadEvent() {
         setLoading(true);
         setError("");
+        setEvent(null);
+        setCategoryName("Uncategorized");
 
         try {
+          // ----------------------------------------
+          // Validate Event ID
+          // ----------------------------------------
+
           if (
             typeof eventID !== "string" ||
             !eventID
@@ -85,28 +114,33 @@ export default function EventDetailsScreen() {
             throw new Error("Invalid event ID.");
           }
 
+          // ----------------------------------------
+          // Load Event, Categories, and Auth Session
+          // ----------------------------------------
+
           const [
             eventResult,
             categories,
-            authResult,
+            sessionResult,
           ] = await Promise.all([
             getEventByID(eventID),
             getEventCategories(),
-            supabase.auth.getUser(),
+            supabase.auth.getSession(),
           ]);
 
-          if (authResult.error) {
-            throw authResult.error;
+          if (sessionResult.error) {
+            throw sessionResult.error;
           }
 
           if (!active) {
             return;
           }
 
+          // ----------------------------------------
+          // Save Event Information
+          // ----------------------------------------
+
           setEvent(eventResult);
-          setCurrentUserID(
-            authResult.data.user?.id ?? null
-          );
 
           const category = categories.find(
             (item) =>
@@ -118,11 +152,53 @@ export default function EventDetailsScreen() {
             category?.categoryName ??
               "Uncategorized"
           );
-        } catch (error) {
+
+          // ----------------------------------------
+          // Identify Authenticated User
+          // ----------------------------------------
+
+          if (!sessionResult.data.session) {
+            // Signed-out visitors can still view
+            // publicly available event details.
+
+            setCurrentUserID(null);
+          } else {
+            const {
+              data: { user },
+              error: authError,
+            } = await supabase.auth.getUser();
+
+            if (!active) {
+              return;
+            }
+
+            if (authError) {
+              // If the session expired, treat the
+              // visitor as signed out.
+
+              if (
+                authError.name ===
+                  "AuthSessionMissingError" ||
+                authError.status === 401
+              ) {
+                setCurrentUserID(null);
+              } else {
+                throw authError;
+              }
+            } else {
+              setCurrentUserID(user?.id ?? null);
+            }
+          }
+        } catch (err) {
           if (active) {
+            console.error(
+              "Unable to load event details:",
+              err
+            );
+
             setError(
-              error instanceof Error
-                ? error.message
+              err instanceof Error
+                ? err.message
                 : "Unable to load event details."
             );
           }
@@ -133,7 +209,7 @@ export default function EventDetailsScreen() {
         }
       }
 
-      void load();
+      void loadEvent();
 
       return () => {
         active = false;
@@ -142,7 +218,7 @@ export default function EventDetailsScreen() {
   );
 
   // --------------------------------------------------
-  // Event Status
+  // Event Ownership and Status
   // --------------------------------------------------
 
   const isOwner =
@@ -166,13 +242,83 @@ export default function EventDetailsScreen() {
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
-      {/* Back Button */}
+      {/* ----------------------------------------
+          Events Dashboard Navigation
+      ---------------------------------------- */}
+
+      <View style={styles.tabs}>
+        {/* All Events */}
+
+        <Pressable
+          style={[
+            styles.tab,
+            activeDashboard === "all_events" &&
+              styles.activeTab,
+          ]}
+          onPress={() =>
+            router.replace("/events/all_events")
+          }
+          accessibilityRole="button"
+          accessibilityState={{
+            selected:
+              activeDashboard === "all_events",
+          }}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeDashboard === "all_events" &&
+                styles.activeTabText,
+            ]}
+          >
+            All Events
+          </Text>
+        </Pressable>
+
+        {/* My Events */}
+
+        <Pressable
+          style={[
+            styles.tab,
+            activeDashboard === "my_events" &&
+              styles.activeTab,
+          ]}
+          onPress={() =>
+            router.replace("/events/my_events")
+          }
+          accessibilityRole="button"
+          accessibilityState={{
+            selected:
+              activeDashboard === "my_events",
+          }}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeDashboard === "my_events" &&
+                styles.activeTabText,
+            ]}
+          >
+            My Events
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* ----------------------------------------
+          Back to Events
+      ---------------------------------------- */}
 
       <Pressable
         style={styles.backButton}
-        onPress={() => router.back()}
+        onPress={backToEvents}
         accessibilityRole="button"
+        accessibilityLabel={`Back to ${
+          activeDashboard === "my_events"
+            ? "My Events"
+            : "All Events"
+        }`}
       >
         <Ionicons
           name="arrow-back"
@@ -185,7 +331,9 @@ export default function EventDetailsScreen() {
         </Text>
       </Pressable>
 
-      {/* Loading */}
+      {/* ----------------------------------------
+          Loading State
+      ---------------------------------------- */}
 
       {loading && (
         <View style={styles.centered}>
@@ -200,7 +348,9 @@ export default function EventDetailsScreen() {
         </View>
       )}
 
-      {/* Error */}
+      {/* ----------------------------------------
+          Error State
+      ---------------------------------------- */}
 
       {!loading && !!error && (
         <View style={styles.centered}>
@@ -210,7 +360,9 @@ export default function EventDetailsScreen() {
         </View>
       )}
 
-      {/* Not Found */}
+      {/* ----------------------------------------
+          Event Not Found
+      ---------------------------------------- */}
 
       {!loading && !error && !event && (
         <View style={styles.centered}>
@@ -219,13 +371,15 @@ export default function EventDetailsScreen() {
           </Text>
 
           <Text style={styles.message}>
-            This event may no longer exist
-            or may not be available to you.
+            This event may no longer exist or
+            may not be available to you.
           </Text>
         </View>
       )}
 
-      {/* Event Details */}
+      {/* ----------------------------------------
+          Event Details
+      ---------------------------------------- */}
 
       {!loading && !error && event && (
         <>
@@ -255,20 +409,26 @@ export default function EventDetailsScreen() {
             )}
           </View>
 
-          {/* Category */}
+          {/* ----------------------------------------
+              Category
+          ---------------------------------------- */}
 
           <Text style={styles.category}>
             {categoryName}
           </Text>
 
-          {/* Event Title */}
+          {/* ----------------------------------------
+              Event Title
+          ---------------------------------------- */}
 
           <Text style={styles.title}>
             {event.eventTitle ||
               "Untitled Event"}
           </Text>
 
-          {/* Badges */}
+          {/* ----------------------------------------
+              Event Badges
+          ---------------------------------------- */}
 
           <View style={styles.badges}>
             {event.isFeatured && (
@@ -298,7 +458,9 @@ export default function EventDetailsScreen() {
             )}
           </View>
 
-          {/* Cost */}
+          {/* ----------------------------------------
+              Event Cost
+          ---------------------------------------- */}
 
           <View style={styles.priceBox}>
             <Text style={styles.label}>
@@ -306,13 +468,13 @@ export default function EventDetailsScreen() {
             </Text>
 
             <Text style={styles.price}>
-              {formatEventCost(
-                event.eventCost
-              )}
+              {formatEventCost(event.eventCost)}
             </Text>
           </View>
 
-          {/* Ownership Info */}
+          {/* ----------------------------------------
+              Ownership Information
+          ---------------------------------------- */}
 
           {isOwner && (
             <View style={styles.ownerNotice}>
@@ -328,7 +490,9 @@ export default function EventDetailsScreen() {
             </View>
           )}
 
-          {/* Description */}
+          {/* ----------------------------------------
+              Event Description
+          ---------------------------------------- */}
 
           <View style={styles.panel}>
             <Text style={styles.sectionTitle}>
@@ -341,12 +505,16 @@ export default function EventDetailsScreen() {
             </Text>
           </View>
 
-          {/* Event Information */}
+          {/* ----------------------------------------
+              Event Information
+          ---------------------------------------- */}
 
           <View style={styles.panel}>
             <Text style={styles.sectionTitle}>
               Event Information
             </Text>
+
+            {/* Start Date */}
 
             <InfoRow
               icon="calendar-outline"
@@ -356,6 +524,8 @@ export default function EventDetailsScreen() {
               )}
             />
 
+            {/* End Date */}
+
             <InfoRow
               icon="time-outline"
               label="End Date & Time"
@@ -363,6 +533,8 @@ export default function EventDetailsScreen() {
                 event.eventEndTime
               )}
             />
+
+            {/* Location */}
 
             <InfoRow
               icon="location-outline"
@@ -373,11 +545,15 @@ export default function EventDetailsScreen() {
               }
             />
 
+            {/* Category */}
+
             <InfoRow
               icon="pricetag-outline"
               label="Category"
               value={categoryName}
             />
+
+            {/* Cost */}
 
             <InfoRow
               icon="cash-outline"
@@ -389,7 +565,9 @@ export default function EventDetailsScreen() {
             />
           </View>
 
-          {/* Event Status */}
+          {/* ----------------------------------------
+              Past Event Message
+          ---------------------------------------- */}
 
           {!isUpcoming && isPublished && (
             <Text style={styles.statusText}>
@@ -407,9 +585,7 @@ export default function EventDetailsScreen() {
 // --------------------------------------------------
 
 type InfoIcon =
-  React.ComponentProps<
-    typeof Ionicons
-  >["name"];
+  React.ComponentProps<typeof Ionicons>["name"];
 
 function InfoRow({
   icon,
@@ -454,6 +630,10 @@ function InfoRow({
 // --------------------------------------------------
 
 const styles = StyleSheet.create({
+  // --------------------------------------------------
+  // Screen Layout
+  // --------------------------------------------------
+
   screen: {
     flex: 1,
     backgroundColor: "#F6F7F3",
@@ -464,6 +644,47 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 70,
   },
+
+  // --------------------------------------------------
+  // Events Dashboard Navigation
+  // --------------------------------------------------
+
+  tabs: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "stretch",
+    height: 52,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E1E6EA",
+    marginBottom: 24,
+    gap: 26,
+  },
+
+  tab: {
+    height: "100%",
+    justifyContent: "center",
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+
+  activeTab: {
+    borderBottomColor: "#31988F",
+  },
+
+  tabText: {
+    color: "#53617A",
+    fontSize: 14,
+    fontWeight: "400",
+  },
+
+  activeTabText: {
+    color: "#31988F",
+    fontWeight: "700",
+  },
+
+  // --------------------------------------------------
+  // Back Button
+  // --------------------------------------------------
 
   backButton: {
     flexDirection: "row",
@@ -479,6 +700,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
   },
+
+  // --------------------------------------------------
+  // Loading and Error States
+  // --------------------------------------------------
 
   centered: {
     paddingVertical: 70,
@@ -499,6 +724,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
   },
+
+  // --------------------------------------------------
+  // Event Image
+  // --------------------------------------------------
 
   hero: {
     width: "100%",
@@ -526,6 +755,10 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
   },
 
+  // --------------------------------------------------
+  // Event Title and Category
+  // --------------------------------------------------
+
   category: {
     marginTop: 24,
     marginBottom: 8,
@@ -542,6 +775,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 38,
   },
+
+  // --------------------------------------------------
+  // Event Badges
+  // --------------------------------------------------
 
   badges: {
     flexDirection: "row",
@@ -577,6 +814,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  // --------------------------------------------------
+  // Event Cost
+  // --------------------------------------------------
+
   priceBox: {
     marginTop: 16,
     marginBottom: 20,
@@ -600,6 +841,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  // --------------------------------------------------
+  // Ownership Notice
+  // --------------------------------------------------
+
   ownerNotice: {
     flexDirection: "row",
     alignItems: "center",
@@ -616,6 +861,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
+
+  // --------------------------------------------------
+  // Content Panels
+  // --------------------------------------------------
 
   panel: {
     backgroundColor: "#FFFFFF",
@@ -638,6 +887,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 25,
   },
+
+  // --------------------------------------------------
+  // Event Information Rows
+  // --------------------------------------------------
 
   infoRow: {
     flexDirection: "row",
@@ -666,6 +919,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 22,
   },
+
+  // --------------------------------------------------
+  // Event Status
+  // --------------------------------------------------
 
   statusText: {
     color: "#63715F",

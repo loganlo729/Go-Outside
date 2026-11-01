@@ -44,11 +44,15 @@ function formatEventTitle(
 // Event Card
 // --------------------------------------------------
 
+type EventCardProps = {
+  event: EventRecord;
+  from?: "all_events" | "my_events";
+};
+
 export default function EventCard({
   event,
-}: {
-  event: EventRecord;
-}) {
+  from = "all_events",
+}: EventCardProps) {
   const router = useRouter();
   
   // --------------------------------------------------
@@ -280,7 +284,10 @@ export default function EventCard({
       {/* Clickable Card Overlay */}
 
       <Link
-        href={`/events/${event.eventID}`}
+        href={{
+          pathname: `/events/${event.eventID}`,
+          query: { from },
+        }}
         className={styles.cardOpenLink}
         aria-label={`View details for ${
           event.eventTitle || "Untitled Event"

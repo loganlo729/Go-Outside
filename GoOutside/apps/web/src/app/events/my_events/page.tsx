@@ -397,26 +397,31 @@ export default function MyEventsPage() {
               <EventSection
                 title="Upcoming Events"
                 events={upcomingEvents}
+                from="my_events"
               />
 
               <EventSection
                 title="Your Active Events"
                 events={activeEvents}
+                from="my_events"
               />
 
               <EventSection
                 title="Your Drafted Events"
                 events={draftEvents}
+                from="my_events"
               />
 
               <EventSection
                 title="Your Past Events"
                 events={pastEvents}
+                from="my_events"
               />
 
               <EventSection
                 title="Other Events"
                 events={others}
+                from="my_events"
               />
             </>
           )}

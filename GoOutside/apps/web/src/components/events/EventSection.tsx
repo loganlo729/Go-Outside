@@ -5,14 +5,26 @@ import EventCard from "./EventCard";
 
 import styles from "./EventDashboard.module.css";
 
+// --------------------------------------------------
+// Event Section Props
+// --------------------------------------------------
+
+type EventSectionProps = {
+  title: string;
+  events: EventRecord[];
+  from?: "all_events" | "my_events";
+};
+
+// --------------------------------------------------
+// Event Section
+// --------------------------------------------------
+
 export default function EventSection({
   title,
   events,
-}: {
-  title: string;
-  events: EventRecord[];
-}) {
-  // Don't render empty sections
+  from = "all_events",
+}: EventSectionProps) {
+  // Don't render empty sections.
   if (!events.length) {
     return null;
   }
@@ -39,9 +51,11 @@ export default function EventSection({
           <EventCard
             key={event.eventID}
             event={event}
+            from={from}
           />
         ))}
       </div>
     </section>
   );
 }
+
