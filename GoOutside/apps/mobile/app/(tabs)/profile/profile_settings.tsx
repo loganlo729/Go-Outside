@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,8 @@ import {
   View,
 } from "react-native";
 import type { User } from "@supabase/supabase-js";
+import * as ImagePicker from "expo-image-picker";
+import { decode } from "base64-arraybuffer";
 
 import Screen from "../../../src/components/Screen";
 import AppButton from "../../../src/components/ui/AppButton";
@@ -69,6 +72,8 @@ export default function ProfileScreen() {
   const [darkMode, setDarkMode] = useState(false);
   const [accentColor, setAccentColor] = useState("#0D9488");
   const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  const [bannerPath, setBannerPath] = useState<string | null>(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -87,7 +92,7 @@ export default function ProfileScreen() {
           const { data: profileData, error: profileError } =
             await supabase
               .from("Profile")
-              .select("displayName, profilePicturePath")
+              .select("displayName, profilePicturePath, bannerPath")
               .eq("userID", data.user.id)
               .single();
 
@@ -97,6 +102,7 @@ export default function ProfileScreen() {
             return;
           }
           setAvatarPath(profileData?.profilePicturePath ?? null);
+          setBannerPath(profileData?.bannerPath ?? null);
 
           const initial = formFromUser(
             data.user,
@@ -128,6 +134,7 @@ export default function ProfileScreen() {
           setForm(EMPTY_FORM);
           setOriginal(EMPTY_FORM);
           setAvatarPath(null);
+          setBannerPath(null);
         } else if (session?.user) {
           setUser(session.user);
 
@@ -136,13 +143,14 @@ export default function ProfileScreen() {
               const { data: profileData, error } =
                 await supabase
                   .from("Profile")
-                  .select("displayName, profilePicturePath")
+                  .select("displayName, profilePicturePath, bannerPath")
                   .eq("userID", session.user.id)
                   .single();
 
               if (!mounted || error) return;
 
               setAvatarPath(profileData?.profilePicturePath ?? null);
+              setBannerPath(profileData?.bannerPath ?? null);
 
               const initial = formFromUser(
                 session.user,
@@ -274,6 +282,59 @@ export default function ProfileScreen() {
     );
   }
 
+  async function handleBannerUpload() {
+    if (!user || uploadingBanner) return;
+
+    setError("");
+    setSuccess("");
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setError("Photo library access is required to select a banner.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [3, 1],
+        quality: 0.85,
+        base64: true,
+      });
+
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      if (!asset.base64) throw new Error("Could not read the selected image.");
+
+      setUploadingBanner(true);
+      const mimeType = asset.mimeType === "image/png" ? "image/png" : "image/jpeg";
+      const extension = mimeType === "image/png" ? "png" : "jpg";
+      const path = `${user.id}/banner-${Date.now()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("banners")
+        .upload(path, decode(asset.base64), {
+          contentType: mimeType,
+          upsert: false,
+        });
+      if (uploadError) throw uploadError;
+
+      const { error: profileError } = await supabase
+        .from("Profile")
+        .update({ bannerPath: path })
+        .eq("userID", user.id);
+      if (profileError) throw profileError;
+
+      setBannerPath(path);
+      setSuccess("Profile banner updated successfully.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to upload banner.");
+    } finally {
+      setUploadingBanner(false);
+    }
+  }
+
   async function handleLogout() {
     if (loggingOut) return;
 
@@ -300,18 +361,17 @@ export default function ProfileScreen() {
   }
 
   function confirmLogout() {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: () => void handleLogout(),
-        },
-      ]
-    );
+    if (loggingOut) return;
+    if (Platform.OS === "web") {
+      if (window.confirm("Are you sure you want to sign out?")) {
+        void handleLogout();
+      }
+      return;
+    }
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign Out", style: "destructive", onPress: () => void handleLogout() },
+    ]);
   }
 
   if (checkingAuth) {
@@ -437,7 +497,7 @@ export default function ProfileScreen() {
           <Text style={styles.success}>{success}</Text>
         ) : null}
 
-        {/* Profile banner */}
+        {/* Existing profile card: banner image and upload control live inside it */}
         <ProfileBanner
           name={displayName}
           memberSince={memberSince}
@@ -446,6 +506,9 @@ export default function ProfileScreen() {
           userId={user.id}
           avatarPath={avatarPath}
           onAvatarUploaded={setAvatarPath}
+          bannerPath={bannerPath}
+          onChangeBanner={() => void handleBannerUpload()}
+          uploadingBanner={uploadingBanner}
         />
 
         {/* Personal information */}
