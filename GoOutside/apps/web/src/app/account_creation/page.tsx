@@ -16,10 +16,11 @@ export default function SignUpPage() {
   const [usernameError, setUsernameError] = useState("");
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const supabase = getSupabaseClient();
 
-  // Check whether a username already exists  
+  // Check whether a username already exists
   async function checkUsernameExists(
     username: string
   ): Promise<boolean> {
@@ -70,20 +71,23 @@ export default function SignUpPage() {
   }
 
   async function handleGoogleSignUp() {
-    setLoading(true);
+    if (googleLoading) return;
+
+    setGoogleLoading(true);
     setError("");
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo:
-          `${window.location.origin}/auth/callback?next=/complete-profile`,
-      },
-    });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/complete-profile`,
+        },
+      });
 
-      if (error) {
-        throw error;
+      if (error) throw error;
+
+      if (!data.url) {
+        throw new Error("Google authentication URL was not returned.");
       }
     } catch (err) {
       setError(
@@ -91,7 +95,8 @@ export default function SignUpPage() {
           ? err.message
           : "Unable to sign up with Google."
       );
-      setLoading(false);
+    } finally {
+      setGoogleLoading(false);
     }
   }
 
@@ -238,9 +243,9 @@ export default function SignUpPage() {
             type="button"
             className="button button-secondary"
             onClick={handleGoogleSignUp}
-            disabled={loading}
+            disabled={googleLoading}
           >
-            Continue with Google
+            {googleLoading ? "Connecting to Google..." : "Continue with Google"}
           </button>
 
           <button
