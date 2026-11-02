@@ -227,8 +227,7 @@ export default function EventCard({
             user.id
           );
 
-          // Only apply the result if no newer
-          // RSVP change has occurred.
+          // Only apply the result if no newer RSVP change has occurred.
           if (
             active &&
             requestVersion === rsvpVersion.current
@@ -334,8 +333,7 @@ export default function EventCard({
         setGoing(true);
       }
 
-      // The service notifies other event cards,
-      // keeping all occurrences synchronized.
+      // The service notifies other event cards, keeping all occurrences synchronized.
     } catch (error) {
       setRSVPError(
         error instanceof Error

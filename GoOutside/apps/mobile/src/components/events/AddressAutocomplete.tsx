@@ -23,7 +23,10 @@ type Suggestion = {
   formatted: string;
 };
 
-const ENDPOINT = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY
+// Geoapify configuration
+const API_KEY = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY;
+
+const ENDPOINT = "https://api.geoapify.com/v1/geocode/autocomplete";
 
 // --------------------------------------------------
 // Address Autocomplete
@@ -57,7 +60,7 @@ export default function AddressAutocomplete({
 
     if (
       disabled ||
-      !ENDPOINT ||
+      !API_KEY ||
       value.trim().length < 3 ||
       picked === value
     ) {
@@ -71,16 +74,39 @@ export default function AddressAutocomplete({
       setBusy(true);
 
       try {
+        const url = `${ENDPOINT}?text=${encodeURIComponent(value.trim())}`;
+
+        console.log("Address API request:", url);
+
+        const params = new URLSearchParams({
+          text: value.trim(),
+          format: "json",
+          limit: "5",
+          lang: "en",
+          apiKey: API_KEY!,
+        });
+
         const response = await fetch(
-          `${ENDPOINT}?text=${encodeURIComponent(value.trim())}`,
+          `${ENDPOINT}?${params.toString()}`,
           {
             signal: controller.signal,
           }
         );
 
+        console.log("Address API status:", response.status);
+
         if (!response.ok) {
-          throw new Error("Address search unavailable");
-        }
+          const responseText = await response.text();
+
+          console.error(
+            "Address API error:",
+            response.status,
+            responseText
+          );
+
+  throw new Error("Address search unavailable");
+}
+
 
         const json: {
           results?: Suggestion[];
@@ -96,6 +122,8 @@ export default function AddressAutocomplete({
         }
       } catch (error) {
         if (!controller.signal.aborted) {
+          console.error("Address autocomplete failed:", error);
+
           setError(
             "Suggestions unavailable. You can enter a location manually."
           );
@@ -111,7 +139,7 @@ export default function AddressAutocomplete({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [value, picked, disabled]);
+  }, [value, picked, disabled, ENDPOINT]);
 
   // --------------------------------------------------
   // Render
@@ -153,9 +181,9 @@ export default function AddressAutocomplete({
 
       {/* Missing API Configuration */}
 
-      {!ENDPOINT && (
+      {!API_KEY && (
         <Text style={styles.message}>
-          Autocomplete unavailable. Please enter your address manually.
+          Address autocomplete is not configured.
         </Text>
       )}
 

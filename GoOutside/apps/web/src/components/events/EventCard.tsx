@@ -201,8 +201,7 @@ export default function EventCard({
           user.id
         );
 
-        // Prevent an outdated response from
-        // overwriting a newer RSVP change.
+        // Prevent an outdated response from overwriting a newer RSVP change.
 
         if (
           active &&
