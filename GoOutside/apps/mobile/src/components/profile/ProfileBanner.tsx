@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { decode } from "base64-arraybuffer";
 import { supabase } from "../../lib/supabase";
 
 type Props = {
@@ -43,37 +44,45 @@ export default function ProfileBanner({
   async function handleAvatarUpload() {
     if (uploading) return;
     setError("");
+
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         setError("Photo library permission is required.");
         return;
       }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        base64: true,
       });
-      if (result.canceled || !result.assets.length) return;
-      setUploading(true);
+
+      if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
-      const response = await fetch(asset.uri);
-      const arrayBuffer = await response.arrayBuffer();
-      if (arrayBuffer.byteLength > 5 * 1024 * 1024) {
+      if (!asset.base64) throw new Error("Could not read the selected image.");
+
+      setUploading(true);
+      const imageBytes = decode(asset.base64);
+      if (imageBytes.byteLength === 0) {
+        throw new Error("Selected image is empty.");
+      }
+      if (imageBytes.byteLength > 5 * 1024 * 1024) {
         throw new Error("Profile pictures must be smaller than 5 MB.");
       }
-      const mimeType = asset.mimeType ?? "image/jpeg";
-      if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
-        throw new Error("Choose a JPG, PNG, or WebP image.");
-      }
-      const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
-      const filePath = `${userId}/avatar-${Date.now()}.${extension}`;
+
+      // Expo's cropped base64 output is JPEG; keep the extension and MIME consistent.
+      const filePath = `${userId}/avatar-${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage
-        .from("avatars").upload(filePath, arrayBuffer, {
-          contentType: mimeType, upsert: false,
+        .from("avatars")
+        .upload(filePath, imageBytes, {
+          contentType: "image/jpeg",
+          upsert: false,
         });
       if (uploadError) throw uploadError;
+
       const { data, error: profileError } = await supabase
         .from("Profile")
         .update({ profilePicturePath: filePath })
@@ -81,8 +90,10 @@ export default function ProfileBanner({
         .select("profilePicturePath")
         .single();
       if (profileError) throw profileError;
+
       onAvatarUploaded(data.profilePicturePath);
     } catch (err) {
+      console.error("Avatar upload failed:", err);
       setError(err instanceof Error ? err.message : "Unable to upload profile picture.");
     } finally {
       setUploading(false);

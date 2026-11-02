@@ -362,16 +362,30 @@ export default function ProfileScreen() {
 
   function confirmLogout() {
     if (loggingOut) return;
+
     if (Platform.OS === "web") {
-      if (window.confirm("Are you sure you want to sign out?")) {
+      const browser = globalThis as typeof globalThis & {
+        confirm?: (message: string) => boolean;
+      };
+
+      if (browser.confirm?.("Are you sure you want to sign out?")) {
         void handleLogout();
       }
       return;
     }
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: () => void handleLogout() },
-    ]);
+
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: () => void handleLogout(),
+        },
+      ]
+    );
   }
 
   if (checkingAuth) {
