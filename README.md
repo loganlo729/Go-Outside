@@ -1,2 +1,2 @@
 # Go-Outside
-Project for SWENG 465
+Project for SWENG 465/CMPSC 475
