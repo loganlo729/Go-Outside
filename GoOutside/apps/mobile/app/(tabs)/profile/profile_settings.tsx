@@ -77,93 +77,95 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     let mounted = true;
+    let authVersion = 0;
 
+    async function loadProfile(currentUser: User, version: number) {
+      const { data: profileData, error: profileError } = await supabase
+        .from("Profile")
+        .select("displayName, profilePicturePath, bannerPath")
+        .eq("userID", currentUser.id)
+        .maybeSingle();
+
+      if (!mounted || version !== authVersion) return;
+
+      if (profileError) {
+        setError(profileError.message);
+        return;
+      }
+
+      setAvatarPath(profileData?.profilePicturePath ?? null);
+      setBannerPath(profileData?.bannerPath ?? null);
+
+      const initial = formFromUser(
+        currentUser,
+        profileData?.displayName ?? ""
+      );
+      setForm(initial);
+      setOriginal(initial);
+    }
+
+    function clearAccount() {
+      setUser(null);
+      setForm(EMPTY_FORM);
+      setOriginal(EMPTY_FORM);
+      setAvatarPath(null);
+      setBannerPath(null);
+      setError("");
+      setSuccess("");
+    }
+
+    // A missing session is a normal guest state, not an authentication error.
     async function loadUser() {
+      const version = ++authVersion;
       try {
-        const { data, error } = await supabase.auth.getUser();
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (!mounted || version !== authVersion) return;
+        if (sessionError) throw sessionError;
 
-        if (!mounted) return;
-
-        if (error) throw error;
-
-        setUser(data.user);
-
-        if (data.user) {
-          const { data: profileData, error: profileError } =
-            await supabase
-              .from("Profile")
-              .select("displayName, profilePicturePath, bannerPath")
-              .eq("userID", data.user.id)
-              .single();
-
-          if (!mounted) return;
-          if (profileError) {
-            setError(profileError.message);
-            return;
-          }
-          setAvatarPath(profileData?.profilePicturePath ?? null);
-          setBannerPath(profileData?.bannerPath ?? null);
-
-          const initial = formFromUser(
-            data.user,
-            profileData.displayName ?? ""
-          );
-
-          setForm(initial);
-          setOriginal(initial);
+        if (!data.session?.user) {
+          clearAccount();
+          return;
         }
-      } catch {
-        if (mounted) {
-          setError("Unable to load your account.");
+
+        const currentUser = data.session.user;
+        setUser(currentUser);
+        setError("");
+        await loadProfile(currentUser, version);
+      } catch (err) {
+        if (mounted && version === authVersion) {
+          setError(
+            err instanceof Error ? err.message : "Unable to load your account."
+          );
         }
       } finally {
         if (mounted) setCheckingAuth(false);
       }
     }
 
-    void loadUser();
-
+    // Register first so a sign-out during the initial session check wins.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!mounted) return;
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      if (event === "INITIAL_SESSION") return;
 
-        if (event === "SIGNED_OUT") {
-          setUser(null);
-          setForm(EMPTY_FORM);
-          setOriginal(EMPTY_FORM);
-          setAvatarPath(null);
-          setBannerPath(null);
-        } else if (session?.user) {
-          setUser(session.user);
-
-          if (event === "SIGNED_IN") {
-            void (async () => {
-              const { data: profileData, error } =
-                await supabase
-                  .from("Profile")
-                  .select("displayName, profilePicturePath, bannerPath")
-                  .eq("userID", session.user.id)
-                  .single();
-
-              if (!mounted || error) return;
-
-              setAvatarPath(profileData?.profilePicturePath ?? null);
-              setBannerPath(profileData?.bannerPath ?? null);
-
-              const initial = formFromUser(
-                session.user,
-                profileData.displayName ?? ""
-              );
-
-              setForm(initial);
-              setOriginal(initial);
-            })();
-          }
-        }
+      const version = ++authVersion;
+      if (event === "SIGNED_OUT" || !session?.user) {
+        clearAccount();
+        setCheckingAuth(false);
+        return;
       }
-    );
+
+      setUser(session.user);
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        setError("");
+        // Defer database access outside the auth callback.
+        Promise.resolve().then(() => loadProfile(session.user, version));
+      }
+      setCheckingAuth(false);
+    });
+
+    void loadUser();
 
     return () => {
       mounted = false;

@@ -1,6 +1,6 @@
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ReactNode } from "react";
 import {
-  SafeAreaView,
   StyleSheet,
   View,
   ViewStyle,
@@ -13,11 +13,11 @@ type ScreenProps = {
 
 export default function Screen({ children, style }: ScreenProps) {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaProvider>
       <View style={[styles.container, style]}>
         {children}
       </View>
-    </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
