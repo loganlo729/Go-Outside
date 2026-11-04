@@ -34,8 +34,23 @@ export default function AllEventsPage() {
   } = useEvents();
 
   const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+
+  // Add or remove categories
+  function toggleCategory(categoryID: string) {
+    setSelectedCategories((previous) =>
+      previous.includes(categoryID)
+        ? previous.filter((id) => id !== categoryID)
+        : [...previous, categoryID]
+    );
+  }
+
+  // Clear category filters
+  function clearCategories() {
+    setSelectedCategories([]);
+  }
+
 
   // --------------------------------------------------
   // Filter Events
@@ -70,8 +85,11 @@ export default function AllEventsPage() {
 
       // Category matching
       const matchesCategory =
-        selectedCategory === "all" ||
-        event.categoryID === selectedCategory;
+        selectedCategories.length === 0 ||
+        (
+          event.categoryID !== null &&
+          selectedCategories.includes(event.categoryID)
+        );
 
       // Date matching
       const date = event.eventStartTime
@@ -88,7 +106,7 @@ export default function AllEventsPage() {
         matchesDate
       );
     });
-  }, [events, search, selectedCategory, dateFilter]);
+  }, [events, search, selectedCategories, dateFilter]);
 
   // --------------------------------------------------
   // Render
@@ -117,8 +135,9 @@ export default function AllEventsPage() {
 
       <EventFilters
         categories={categories}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
+        selectedCategories={selectedCategories}
+        onToggleCategory={toggleCategory}
+        onClearCategories={clearCategories}
         dateFilter={dateFilter}
         onDateChange={setDateFilter}
       />
@@ -160,8 +179,8 @@ export default function AllEventsPage() {
           {categories
             .filter(
               (category) =>
-                selectedCategory === "all" ||
-                category.categoryID === selectedCategory
+                selectedCategories.length === 0 ||
+                selectedCategories.includes(category.categoryID)
             )
             .map((category) => (
               <EventSection

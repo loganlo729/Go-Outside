@@ -1,3 +1,8 @@
+"use client";
+
+// React hooks
+import { useState } from "react";
+
 // Event filter types
 import type {
   CategoryRecord,
@@ -8,52 +13,110 @@ import type {
 import styles from "./EventDashboard.module.css";
 
 
-export default function EventFilters({
-  categories,
-  selectedCategory,
-  onCategoryChange,
-  dateFilter,
-  onDateChange,
-}: {
+
+type Props = {
   categories: CategoryRecord[];
-  selectedCategory: string;
-  onCategoryChange: (value: string) => void;
+  selectedCategories: string[];
+  onToggleCategory: (id: string) => void;
+  onClearCategories: () => void;
   dateFilter: DateFilter;
   onDateChange: (value: DateFilter) => void;
-}) {
+};
+
+export default function EventFilters({
+  categories,
+  selectedCategories,
+  onToggleCategory,
+  onClearCategories,
+  dateFilter,
+  onDateChange,
+}: Props) {
+  // Dropdown visibility
+  const [dropdownOpen, setDropdownOpen] =
+    useState(false);
   return (
     <div className={styles.filters}>
-      {/* Category Filters */}
+       {/* Category Dropdown */}
 
-      <div
-        className={styles.filterRail}
-        aria-label="Categories"
-      >
+      <div className={styles.categoryDropdown}>
         <button
           type="button"
-          aria-pressed={selectedCategory === "all"}
-          onClick={() => onCategoryChange("all")}
-          className={styles.chip}
+          className={styles.dropdownButton}
+          onClick={() =>
+            setDropdownOpen((previous) => !previous)
+          }
+          aria-expanded={dropdownOpen}
         >
-          All Categories
+          <span
+            className={
+              selectedCategories.length > 0
+                ? styles.dropdownSelectedText
+                : undefined
+            }
+          >
+            {selectedCategories.length === 0
+              ? "All Categories"
+              : `${selectedCategories.length} ${
+                  selectedCategories.length === 1
+                    ? "Category"
+                    : "Categories"
+                } Selected`}
+          </span>
+
+
+          <span aria-hidden="true">
+            {dropdownOpen ? "▲" : "▼"}
+          </span>
         </button>
 
-        {categories.map((category) => (
-          <button
-            key={category.categoryID}
-            type="button"
-            aria-pressed={
-              selectedCategory === category.categoryID
-            }
-            onClick={() =>
-              onCategoryChange(category.categoryID)
-            }
-            className={styles.chip}
-          >
-            {category.categoryName}
-          </button>
-        ))}
+        {/* Category Options */}
+
+        {dropdownOpen && (
+          <div className={styles.dropdownMenu}>
+            <div className={styles.dropdownHeader}>
+              <span>Select Categories</span>
+
+              <button
+                type="button"
+                className={styles.clearCategories}
+                onClick={onClearCategories}
+              >
+                Clear All
+              </button>
+            </div>
+
+            <div className={styles.categoryOptions}>
+              {categories.map((category) => (
+                <label
+                  key={category.categoryID}
+                  className={styles.categoryOption}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCategories.includes(
+                      category.categoryID
+                    )}
+                    onChange={() =>
+                      onToggleCategory(category.categoryID)
+                    }
+                  />
+
+                  <span>{category.categoryName}</span>
+                </label>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className={styles.dropdownDone}
+              onClick={() => setDropdownOpen(false)}
+            >
+              Done
+            </button>
+          </div>
+        )}
       </div>
+
 
       {/* Date Filters */}
 

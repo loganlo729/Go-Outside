@@ -60,12 +60,26 @@ export default function AllEventsScreen() {
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
 
   const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // Changed from selectedCategory to selectedCategories to filter by multiple categories
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+
+  // Add or remove selected categories
+  function toggleCategory(categoryID: string) {
+    setSelectedCategories((previous) =>
+      previous.includes(categoryID)
+        ? previous.filter((id) => id !== categoryID)
+        : [...previous, categoryID]
+    );
+  }
+
+  // Reset category filters
+  function clearCategories() {
+    setSelectedCategories([]);
+  }
 
   // --------------------------------------------------
   // Fetch Upcoming Events and Categories
@@ -115,8 +129,7 @@ export default function AllEventsScreen() {
     const now = new Date();
     const end = new Date(now);
 
-    // Date ranges.
-
+    // Date ranges
     if (dateFilter === "twoWeeks") {
       end.setDate(end.getDate() + 14);
     } else if (dateFilter === "month") {
@@ -126,7 +139,7 @@ export default function AllEventsScreen() {
     const query = search.trim().toLowerCase();
 
     return events.filter((event) => {
-      // Search matching.
+      // Search matching
       const matchesSearch =
         !query ||
         [
@@ -137,13 +150,15 @@ export default function AllEventsScreen() {
           (value ?? "").toLowerCase().includes(query)
         );
 
-      // Category matching.
+      // Category matching
       const matchesCategory =
-        selectedCategory === "all" ||
-        event.categoryID === selectedCategory;
-
+        selectedCategories.length === 0 ||
+        (
+          event.categoryID !== null &&
+          selectedCategories.includes(event.categoryID)
+        );
+        
       // Date matching.
-
       const startDate = event.eventStartTime
         ? new Date(event.eventStartTime)
         : null;
@@ -165,7 +180,7 @@ export default function AllEventsScreen() {
   }, [
     events,
     search,
-    selectedCategory,
+    selectedCategories,
     dateFilter,
   ]);
 
@@ -239,8 +254,9 @@ export default function AllEventsScreen() {
 
         <EventFilters
           categories={categories}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
+          selectedCategories={selectedCategories}
+          onToggleCategory={toggleCategory}
+          onClearCategories={clearCategories}
           dateFilter={dateFilter}
           onSelectDate={setDateFilter}
         />
@@ -296,8 +312,8 @@ export default function AllEventsScreen() {
             {categories
               .filter(
                 (category) =>
-                  selectedCategory === "all" ||
-                  category.categoryID === selectedCategory
+                  selectedCategories.length === 0 ||
+                  selectedCategories.includes(category.categoryID)
               )
               .map((category) => (
                 <EventSection
