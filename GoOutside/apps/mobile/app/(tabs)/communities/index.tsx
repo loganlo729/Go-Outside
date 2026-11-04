@@ -1,5 +1,5 @@
 import { Redirect } from "expo-router";
 
 export default function EventsIndex() {
-  return <Redirect href="/communities/communities" />;
+  return <Redirect href="/communities/community_home" />;
 }

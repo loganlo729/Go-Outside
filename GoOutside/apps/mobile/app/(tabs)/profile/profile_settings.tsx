@@ -423,7 +423,7 @@ export default function ProfileScreen() {
             <AppButton
               title="Log In"
               onPress={() =>
-                router.push("/Login_Sign_Up/login")
+                router.push("/login_sign_up/login")
               }
             />
 
@@ -432,7 +432,7 @@ export default function ProfileScreen() {
               variant="secondary"
               onPress={() =>
                 router.push(
-                  "/Login_Sign_Up/create_account"
+                  "/login_sign_up/create_account"
                 )
               }
             />

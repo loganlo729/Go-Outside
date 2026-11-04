@@ -50,13 +50,13 @@ export default function LoginScreen() {
 
   return (
     <Screen>
-      <TouchableOpacity 
+      {/* <TouchableOpacity 
         style={styles.backButton} 
         onPress={() => router.back()}
         activeOpacity={0.7}
       >
         <Ionicons name="arrow-back" size={24} color="#1D2B20" />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       <View style={styles.header}>
         <Text style={styles.title}>Welcome back.</Text>
@@ -103,7 +103,7 @@ export default function LoginScreen() {
           <AppButton
             title="Create Account"
             variant="tertiary"
-            onPress={() => router.push("../Login_Sign_Up/create_account")}
+            onPress={() => router.push("../login_sign_up/create_account")}
           />
           
         </View>
@@ -114,12 +114,12 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   // ⬇️ New style for the back arrow placement
-  backButton: {
+  /* backButton: {
     alignSelf: "flex-start",
     paddingVertical: 10,
     paddingRight: 20,
     marginTop: 10,
-  },
+  }, */
 
   header: {
     marginTop: 20, // Adjusted down slightly to compensate for arrow

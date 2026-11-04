@@ -12,7 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
 
 // Navigation hooks
@@ -398,11 +398,8 @@ export default function EventDetailsScreen() {
               "https://"
             ) ? (
               <Image
-                source={{
-                  uri: event.eventImageURL,
-                }}
-                style={styles.heroImage}
-                resizeMode="cover"
+                source={{ uri: event.eventImageURL }}
+                style={[styles.heroImage, { resizeMode: "cover" }]}
               />
             ) : (
               <View
