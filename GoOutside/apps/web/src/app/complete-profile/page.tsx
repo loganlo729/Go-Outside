@@ -15,6 +15,7 @@ export default function CompleteProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+
   useEffect(() => {
     let mounted = true;
 

@@ -5,12 +5,14 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 
 import AppButton from "../../src/components/ui/AppButton";
 import Screen from "../../src/components/Screen";
 import { supabase } from "../../src/lib/supabase";
+import Ionicons from "@expo/vector-icons/build/Ionicons";
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -99,6 +101,13 @@ export default function SignUpScreen() {
 
   return (
     <Screen>
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={() => router.back()}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="arrow-back" size={24} color="#1D2B20" />
+      </TouchableOpacity>
       <View style={styles.header}>
         <Text style={styles.title}>Create Account</Text>
 
@@ -163,6 +172,12 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
+  backButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingRight: 20,
+    marginTop: 10,
+  },
   header: {
     marginTop: 40,
     marginBottom: 40,

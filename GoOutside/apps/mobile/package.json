@@ -35,7 +35,8 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.2",
     "react-native-url-polyfill": "^4.0.0",
-    "react-native-web": "^0.21.3"
+    "react-native-web": "^0.21.3",
+    "resend": "^6.37.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

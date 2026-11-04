@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import {
   Alert,
   StyleSheet,
   Text,
   TextInput,
   View,
+  TouchableOpacity,
 } from "react-native";
 import AppButton from "../../src/components/ui/AppButton";
 import Screen from "../../src/components/Screen";
@@ -48,6 +50,14 @@ export default function LoginScreen() {
 
   return (
     <Screen>
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={() => router.back()}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="arrow-back" size={24} color="#1D2B20" />
+      </TouchableOpacity>
+
       <View style={styles.header}>
         <Text style={styles.title}>Welcome back.</Text>
 
@@ -103,8 +113,16 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  // ⬇️ New style for the back arrow placement
+  backButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 10,
+    paddingRight: 20,
+    marginTop: 10,
+  },
+
   header: {
-    marginTop: 40,
+    marginTop: 20, // Adjusted down slightly to compensate for arrow
     marginBottom: 40,
   },
 
@@ -116,7 +134,7 @@ const styles = StyleSheet.create({
 
   subtitle: {
     marginTop: 8,
-    color: "#1D2B20",//687269
+    color: "#1D2B20", //687269
     fontSize: 17,
   },
 
