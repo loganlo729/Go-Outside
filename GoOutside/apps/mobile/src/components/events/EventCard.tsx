@@ -53,6 +53,7 @@ import {
 type EventCardProps = {
   event: EventRecord;
   from?: "all_events" | "my_events";
+  layout?: "default" | "horizontal";
 };
 
 // --------------------------------------------------
@@ -92,8 +93,12 @@ function formatLocation(
 export default function EventCard({
   event,
   from = "all_events",
+  layout = "default",
 }: EventCardProps) {
   const router = useRouter();
+  
+  // Card layout
+  const isHorizontal = layout === "horizontal";
 
   // --------------------------------------------------
   // RSVP State
@@ -108,8 +113,7 @@ export default function EventCard({
   const [savingRSVP, setSavingRSVP] = useState(false);
   const [rsvpError, setRSVPError] = useState("");
 
-  // Prevent older RSVP requests from overwriting
-  // more recent changes.
+  // Prevent older RSVP requests from overwriting more recent changes.
   const rsvpVersion = useRef(0);
 
   // Prevent rapid duplicate RSVP button presses.
@@ -351,13 +355,21 @@ export default function EventCard({
   // --------------------------------------------------
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        isHorizontal && styles.horizontalCard,
+      ]}
+    >
       {/* ----------------------------------------
           Clickable Card Content
       ---------------------------------------- */}
 
       <Pressable
-        style={styles.cardContent}
+        style={[
+          styles.cardContent,
+          isHorizontal && styles.horizontalContent,
+        ]}
         onPress={openEventDetails}
         accessibilityRole="button"
         accessibilityLabel={`View details for ${
@@ -371,11 +383,19 @@ export default function EventCard({
             source={{
               uri: event.eventImageURL!,
             }}
-            style={styles.image}
+            style={[
+              styles.image,
+              isHorizontal && styles.horizontalImage,
+            ]}
             resizeMode="cover"
           />
         ) : (
-          <View style={styles.placeholder}>
+          <View
+            style={[
+              styles.placeholder,
+              isHorizontal && styles.horizontalImage,
+            ]}
+          >
             <Text style={styles.placeholderText}>
               GO OUTSIDE
             </Text>
@@ -384,17 +404,30 @@ export default function EventCard({
 
         {/* Event Information */}
 
-        <View style={styles.body}>
+        <View
+          style={[
+            styles.body,
+            isHorizontal && styles.horizontalBody,
+          ]}
+        >
           {/* Date */}
 
-          <Text style={styles.date}>
+          <Text
+            style={[
+              styles.date,
+              isHorizontal && styles.horizontalDate,
+            ]}
+          >
             {formatEventDate(event.eventStartTime)}
           </Text>
 
           {/* Title */}
 
           <Text
-            style={styles.title}
+            style={[
+              styles.title,
+              isHorizontal && styles.horizontalTitle,
+            ]}
             numberOfLines={2}
           >
             {formatEventTitle(event.eventTitle)}
@@ -403,7 +436,10 @@ export default function EventCard({
           {/* Location */}
 
           <Text
-            style={styles.location}
+            style={[
+              styles.location,
+              isHorizontal && styles.horizontalLocation,
+            ]}
             numberOfLines={2}
           >
             ⌖ {formatLocation(event.eventLocation)}
@@ -701,5 +737,49 @@ const styles = StyleSheet.create({
     color: "#B42318",
     fontSize: 11,
     lineHeight: 16,
+  },
+
+    
+  // --------------------------------------------------
+  // Horizontal List Card
+  // --------------------------------------------------
+
+  horizontalCard: {
+    width: "100%",
+    borderRadius: 12,
+  },
+
+  horizontalContent: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+
+  horizontalImage: {
+    width: 118,
+    height: 150,
+    aspectRatio: undefined,
+  },
+
+  horizontalBody: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+
+  horizontalDate: {
+    marginBottom: 6,
+  },
+
+  horizontalTitle: {
+    minHeight: 0,
+    marginBottom: 6,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+
+  horizontalLocation: {
+    minHeight: 0,
+    marginBottom: 6,
   },
 });

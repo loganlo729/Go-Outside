@@ -172,8 +172,9 @@ export default function AllEventsPage() {
             events={filtered.filter(
               (event) => event.isFeatured
             )}
+            viewAllHref="/events/category/featured"
           />
-
+          
           {/* Dynamic Category Sections */}
 
           {categories
@@ -190,6 +191,9 @@ export default function AllEventsPage() {
                   (event) =>
                     event.categoryID === category.categoryID
                 )}
+                viewAllHref={`/events/category/${encodeURIComponent(
+                  category.categoryID
+                )}`}
               />
             ))}
         </>

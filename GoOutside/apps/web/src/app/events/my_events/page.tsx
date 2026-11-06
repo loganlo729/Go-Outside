@@ -312,17 +312,6 @@ export default function MyEventsPage() {
         <h1 className={styles.heading}>
           My Events
         </h1>
-
-        <div className={styles.headerActions}>
-          {signedIn && (
-            <Link
-              href="/events/create_event"
-              className={styles.button}
-            >
-              + Create Event
-            </Link>
-          )}
-        </div>
       </header>
 
       {/* ----------------------------------------
@@ -372,18 +361,27 @@ export default function MyEventsPage() {
         // ----------------------------------------
 
         <>
-          {/* Search */}
+          {/* Search and Create Event */}
 
-          <input
-            type="search"
-            className={styles.search}
-            value={search}
-            placeholder="Search your events..."
-            aria-label="Search your events"
-            onChange={(event) =>
-              setSearch(event.target.value)
-            }
-          />
+          <div className={styles.searchActions}>
+            <input
+              type="search"
+              className={styles.search}
+              value={search}
+              placeholder="Search your events..."
+              aria-label="Search your events"
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+            />
+
+            <Link
+              href="/events/create_event"
+              className={styles.button}
+            >
+              + Create Event
+            </Link>
+          </div>
 
           {/* Empty State */}
 
@@ -399,34 +397,49 @@ export default function MyEventsPage() {
             // ----------------------------------------
 
             <>
+              {/* Upcoming RSVP Events */}
+
               <EventSection
                 title="Upcoming Events"
                 events={upcomingEvents}
                 from="my_events"
+                viewAllHref="/events/collections/upcoming"
               />
+
+              {/* Active Events Created by User */}
 
               <EventSection
                 title="Your Active Events"
                 events={activeEvents}
                 from="my_events"
+                viewAllHref="/events/collections/active"
               />
+
+              {/* Drafted Events */}
 
               <EventSection
                 title="Your Drafted Events"
                 events={draftEvents}
                 from="my_events"
+                viewAllHref="/events/collections/drafted"
               />
+
+              {/* Past Events */}
 
               <EventSection
                 title="Your Past Events"
                 events={pastEvents}
                 from="my_events"
+                viewAllHref="/events/collections/past"
               />
+
+              {/* Other Events */}
 
               <EventSection
                 title="Other Events"
                 events={others}
                 from="my_events"
+                viewAllHref="/events/collections/other"
               />
             </>
           )}

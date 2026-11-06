@@ -526,30 +526,35 @@ export default function MyEventsScreen() {
                   title="Upcoming Events"
                   data={upcomingEvents}
                   from="my_events"
+                  viewAllHref="/events/collections/upcoming"
                 />
 
                 <EventSection
                   title="Your Active Events"
                   data={activeEvents}
                   from="my_events"
+                  viewAllHref="/events/collections/active"
                 />
 
                 <EventSection
                   title="Your Drafted Events"
                   data={draftEvents}
                   from="my_events"
+                  viewAllHref="/events/collections/drafted"
                 />
 
                 <EventSection
                   title="Your Past Events"
                   data={pastEvents}
                   from="my_events"
+                  viewAllHref="/events/collections/past"
                 />
 
                 <EventSection
                   title="Other Events"
                   data={otherEvents}
                   from="my_events"
+                  viewAllHref="/events/collections/other"
                 />
               </>
             )}

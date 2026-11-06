@@ -117,7 +117,16 @@
   padding: 2px 2px 16px;
   scroll-snap-type: x proximity;
   overscroll-behavior-inline: contain;
+
+  /* Hide horizontal scrollbar */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
 
 /* --------------------------------------------------
    Event Cards
@@ -653,4 +662,191 @@
 
 .dropdownDone:hover {
   background: #267f78;
+}
+
+
+
+
+/* --------------------------------------------------
+   Event Carousel Container
+-------------------------------------------------- */
+
+.carouselContainer {
+  width: 100%;
+  padding: 20px;
+
+  background: hsl(134, 25%, 80%);
+  border: 2px solid hsl(134, 32%, 29%);
+  border-radius: 18px;
+
+  margin-bottom: 28px;
+  box-sizing: border-box;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .carouselContainer {
+    padding: 16px;
+    border-radius: 14px;
+  }
+}
+
+
+
+
+/* --------------------------------------------------
+   Carousel Section Header
+-------------------------------------------------- */
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.sectionHeader .sectionTitle {
+  margin: 0;
+}
+
+/* --------------------------------------------------
+   View All Button
+-------------------------------------------------- */
+
+.viewAllLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+
+  padding: 8px 14px;
+  background: #e8f6f4;
+  border: 1px solid #8fbf91;
+  border-radius: 9px;
+
+  color: #207e75;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+
+  transition: background 0.2s ease;
+}
+
+.viewAllLink:hover {
+  background: #d7efeb;
+}
+
+.viewAllLink:focus-visible {
+  outline: 2px solid #31988f;
+  outline-offset: 3px;
+}
+
+/* --------------------------------------------------
+   View All Page
+-------------------------------------------------- */
+
+.viewAllPage {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px 28px 80px;
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------
+   Back Navigation
+-------------------------------------------------- */
+
+.viewAllBack {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+
+  color: #3f6d3f;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.viewAllBack:hover {
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------
+   Event Grid
+-------------------------------------------------- */
+
+.viewAllGrid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, 260px), 1fr)
+  );
+  gap: 20px;
+  align-items: stretch;
+}
+
+.viewAllGrid > .card {
+  width: 100%;
+  min-width: 0;
+  flex: none;
+}
+
+/* --------------------------------------------------
+   Responsive Styling
+-------------------------------------------------- */
+
+@media (max-width: 768px) {
+  .viewAllPage {
+    padding: 20px 16px 60px;
+  }
+
+  .viewAllGrid {
+    gap: 14px;
+  }
+
+  .viewAllLink {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+}
+
+
+/* --------------------------------------------------
+   Search and Create Event
+-------------------------------------------------- */
+
+.searchActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.searchActions .search {
+  flex: 1;
+  min-width: 0;
+  max-width: 640px;
+}
+
+.searchActions .button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 600px) {
+  .searchActions {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .searchActions .search {
+    max-width: none;
+    flex-basis: 100%;
+  }
 }

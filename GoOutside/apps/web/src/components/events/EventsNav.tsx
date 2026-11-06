@@ -26,15 +26,18 @@ export default function EventsNav() {
   // --------------------------------------------------
 
   const from = searchParams.get("from");
-
+  
   const isAllEvents =
     pathname === "/events" ||
     pathname === "/events/all_events" ||
+    pathname.startsWith("/events/category/") ||
     (pathname.startsWith("/events/") &&
       from === "all_events");
 
   const isMyEvents =
     pathname === "/events/my_events" ||
+    pathname.startsWith("/events/collections/") ||
+    pathname === "/events/create_event" ||
     (pathname.startsWith("/events/") &&
       from === "my_events");
 

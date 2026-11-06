@@ -298,16 +298,18 @@ export default function AllEventsScreen() {
             </Text>
           </View>
         ) : (
-          <>
+          <> 
             {/* Featured Events */}
+
             <EventSection
               title="Featured"
               data={filteredEvents.filter(
                 (event) => event.isFeatured
               )}
+              viewAllHref="/events/category/featured"
             />
-
-            {/* Category Event Sections */}
+     
+            {/* Category Sections */}
 
             {categories
               .filter(
@@ -323,6 +325,9 @@ export default function AllEventsScreen() {
                     (event) =>
                       event.categoryID === category.categoryID
                   )}
+                  viewAllHref={`/events/category/${encodeURIComponent(
+                    category.categoryID
+                  )}`}
                 />
               ))}
           </>
