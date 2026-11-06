@@ -52,15 +52,22 @@ export async function GET(request: NextRequest) {
   if (error) {
     console.error("OAuth exchange failed:", error.message);
 
-    return NextResponse.redirect(
-      new URL(
-        `/login?error=${encodeURIComponent(error.message)}`,
-        url.origin
-      )
+    const errorResponse = NextResponse.redirect(
+      new URL("/login?error=oauth_failed", url.origin)
     );
+
+    // Preserve any cookies set during the exchange.
+    response.cookies.getAll().forEach((cookie) => {
+      errorResponse.cookies.set(cookie);
+    });
+
+    return errorResponse;
   }
 
-  console.log("OAuth successful:", data.user?.id);
+  console.log("OAuth successful:", {
+    userId: data.user?.id,
+    redirectingTo: next,
+  });
 
   return response;
 }

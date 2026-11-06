@@ -47,6 +47,29 @@ const EMPTY_FORM: ProfileForm = {
   location: "",
 };
 
+function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+
+  if (digits.length <= 3) {
+    return digits;
+  }
+
+  if (digits.length <= 6) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  }
+
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function isValidPhoneNumber(value: string): boolean {
+  if (!value.trim()) return true; // Optional field
+
+  const digits = value.replace(/\D/g, "");
+
+  // US phone numbers: 10 digits, area and exchange codes start with 2-9
+  return /^[2-9]\d{2}[2-9]\d{6}$/.test(digits);
+}
+
 function formFromUser(user: User, displayName: string): ProfileForm {
   return {
     fullName: displayName,
@@ -263,6 +286,11 @@ export default function ProfileScreen() {
 
     if (!fullName || !email) {
       setError("Display name and email are required.");
+      return;
+    }
+
+    if (!isValidPhoneNumber(form.phone)) {
+      setError("Please enter a valid 10-digit US phone number.");
       return;
     }
 
@@ -619,10 +647,10 @@ export default function ProfileScreen() {
           <ProfileField
             label="Phone Number"
             value={form.phone}
-            placeholder="+1 (555) 000-0000"
+            placeholder="123-456-7890"
             keyboardType="phone-pad"
             onChangeText={(value) =>
-              updateField("phone", value)
+              updateField("phone", formatPhoneNumber(value))
             }
           />
 
