@@ -40,7 +40,10 @@ export default function CompleteProfilePage() {
 
         if (!mounted) return;
 
-        if (profile?.username?.trim()) {
+        if (
+          profile?.username?.trim() &&
+          !profile.username.startsWith("pending_")
+        ) {
           router.replace("/profile");
           return;
         }
@@ -122,11 +125,34 @@ export default function CompleteProfilePage() {
       if (updateError) throw updateError;
 
       if (!updatedProfile) {
-        throw new Error("Username could not be saved.");
-      }
+  throw new Error("Username could not be saved.");
+}
 
-      router.replace("/profile");
-      router.refresh();
+// Send welcome email after successful registration
+try {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.access_token) {
+    const response = await fetch("/api/send-welcome", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error("Welcome email request failed");
+    }
+  }
+} catch (emailError) {
+  console.error("Welcome email error:", emailError);
+}
+
+// Continue even if the email fails
+router.replace("/profile");
+router.refresh();
     } catch (err) {
       setError(
         err instanceof Error
