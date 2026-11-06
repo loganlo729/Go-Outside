@@ -24,6 +24,12 @@ export default function CompleteProfilePage() {
         const { data, error: authError } =
           await supabase.auth.getUser();
 
+      console.log("Complete profile authentication:", {
+        userId: data.user?.id ?? null,
+        error: authError?.message ?? null,
+        currentUrl: window.location.href,
+      });
+
         if (authError || !data.user) {
           router.replace("/login");
           return;
