@@ -23,6 +23,8 @@ import SettingsCard from "../../../src/components/profile/SettingsCard";
 import { supabase } from "../../../src/lib/supabase";
 import ProfileBanner from "../../../src/components/profile/ProfileBanner";
 
+import LocationPicker from "../../../src/components/profile/LocationPicker";
+
 const ACCENTS = [
   "#0D9488",
   "#6366F1",
@@ -45,13 +47,43 @@ const EMPTY_FORM: ProfileForm = {
   location: "",
 };
 
+function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+
+  if (digits.length <= 3) {
+    return digits;
+  }
+
+  if (digits.length <= 6) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  }
+
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function isValidPhoneNumber(value: string): boolean {
+  if (!value.trim()) return true; // Optional field
+
+  const digits = value.replace(/\D/g, "");
+
+  // US phone numbers: 10 digits, area and exchange codes start with 2-9
+  return /^[2-9]\d{2}[2-9]\d{6}$/.test(digits);
+}
+
 function formFromUser(user: User, displayName: string): ProfileForm {
   return {
     fullName: displayName,
     email: user.email ?? "",
     phone: user.user_metadata?.phone ?? "",
-    location: user.user_metadata?.location ?? "",
+    location: "",
   };
+}
+
+function parseSavedLocation(value: string) {
+  const match = value.trim().match(/^(.*),\s*([A-Z]{2})$/);
+  return match
+    ? { city: match[1].trim(), state: match[2] }
+    : { city: value.trim(), state: "" };
 }
 
 export default function ProfileScreen() {
@@ -75,6 +107,11 @@ export default function ProfileScreen() {
   const [bannerPath, setBannerPath] = useState<string | null>(null);
   const [uploadingBanner, setUploadingBanner] = useState(false);
 
+  const [stateCode, setStateCode] = useState("");
+  const [locationId, setLocationId] = useState<number | null>(null);
+  const [originalStateCode, setOriginalStateCode] = useState("");
+  const [originalLocationId, setOriginalLocationId] = useState<number | null>(null);
+
   useEffect(() => {
     let mounted = true;
     let authVersion = 0;
@@ -82,24 +119,56 @@ export default function ProfileScreen() {
     async function loadProfile(currentUser: User, version: number) {
       const { data: profileData, error: profileError } = await supabase
         .from("Profile")
-        .select("displayName, profilePicturePath, bannerPath")
+        .select("displayName, profilePicturePath, bannerPath, locationID, stateCode")
         .eq("userID", currentUser.id)
         .maybeSingle();
 
       if (!mounted || version !== authVersion) return;
-
       if (profileError) {
         setError(profileError.message);
         return;
       }
 
+      console.log("PROFILE LOCATION DATA:", {
+        stateCode: profileData?.stateCode,
+        locationID: profileData?.locationID,
+      });
+
+      let savedLocation = "";
+      let savedLocationId: number | null = null;
+      let savedStateCode = profileData?.stateCode ?? "";
+
+      if (profileData?.locationID != null) {
+        const { data: locationData, error: locationError } = await supabase
+          .from("Location")
+          .select("id, locationName, stateCode")
+          .eq("id", profileData.locationID)
+          .maybeSingle();
+
+        if (!mounted || version !== authVersion) return;
+        if (locationError) {
+          setError(locationError.message);
+          return;
+        }
+        if (locationData) {
+          savedLocationId = locationData.id;
+          savedStateCode = locationData.stateCode;
+          savedLocation = `${locationData.locationName}, ${locationData.stateCode}`;
+        }
+      }
+
+      if (!mounted || version !== authVersion) return;
       setAvatarPath(profileData?.profilePicturePath ?? null);
       setBannerPath(profileData?.bannerPath ?? null);
+      setStateCode(savedStateCode);
+      setLocationId(savedLocationId);
+      setOriginalStateCode(savedStateCode);
+      setOriginalLocationId(savedLocationId);
 
-      const initial = formFromUser(
-        currentUser,
-        profileData?.displayName ?? ""
-      );
+      const initial: ProfileForm = {
+        ...formFromUser(currentUser, profileData?.displayName ?? ""),
+        location: savedLocation,
+      };
       setForm(initial);
       setOriginal(initial);
     }
@@ -108,6 +177,10 @@ export default function ProfileScreen() {
       setUser(null);
       setForm(EMPTY_FORM);
       setOriginal(EMPTY_FORM);
+      setStateCode("");
+      setLocationId(null);
+      setOriginalStateCode("");
+      setOriginalLocationId(null);
       setAvatarPath(null);
       setBannerPath(null);
       setError("");
@@ -185,6 +258,8 @@ export default function ProfileScreen() {
 
   function handleCancel() {
     setForm({ ...original });
+    setStateCode(originalStateCode);
+    setLocationId(originalLocationId);
     setError("");
     setSuccess("");
   }
@@ -198,10 +273,24 @@ export default function ProfileScreen() {
     const fullName = form.fullName.trim();
     const email = form.email.trim();
     const phone = form.phone.trim();
-    const location = form.location.trim();
+    const location = locationId !== null ? form.location.trim() : "";
+
+    if (locationId !== null && !stateCode) {
+      setError("Select a state for your location.");
+      return;
+    }
+    if (locationId === null && form.location.trim()) {
+      setError("Choose a city or town from the search results.");
+      return;
+    }
 
     if (!fullName || !email) {
       setError("Display name and email are required.");
+      return;
+    }
+
+    if (!isValidPhoneNumber(form.phone)) {
+      setError("Please enter a valid 10-digit US phone number.");
       return;
     }
 
@@ -214,9 +303,11 @@ export default function ProfileScreen() {
           .from("Profile")
           .update({
             displayName: fullName,
+            locationID: locationId,
+            stateCode: stateCode || null,
           })
           .eq("userID", user.id)
-          .select("displayName")
+          .select("displayName, locationID, stateCode")
           .single();
 
       if (profileError) throw profileError;
@@ -229,7 +320,6 @@ export default function ProfileScreen() {
           ...(emailChanged ? { email } : {}),
           data: {
             phone,
-            location,
           },
         });
 
@@ -246,6 +336,8 @@ export default function ProfileScreen() {
 
       setForm(saved);
       setOriginal(saved);
+      setOriginalStateCode(updatedProfile.stateCode ?? "");
+      setOriginalLocationId(updatedProfile.locationID ?? null);
 
       setSuccess(
         emailChanged
@@ -423,7 +515,7 @@ export default function ProfileScreen() {
             <AppButton
               title="Log In"
               onPress={() =>
-                router.push("/Login_Sign_Up/login")
+                router.push("/login_sign_up/login")
               }
             />
 
@@ -432,7 +524,7 @@ export default function ProfileScreen() {
               variant="secondary"
               onPress={() =>
                 router.push(
-                  "/Login_Sign_Up/create_account"
+                  "/login_sign_up/create_account"
                 )
               }
             />
@@ -555,20 +647,32 @@ export default function ProfileScreen() {
           <ProfileField
             label="Phone Number"
             value={form.phone}
-            placeholder="+1 (555) 000-0000"
+            placeholder="123-456-7890"
             keyboardType="phone-pad"
             onChangeText={(value) =>
-              updateField("phone", value)
+              updateField("phone", formatPhoneNumber(value))
             }
           />
 
-          <ProfileField
-            label="Location"
-            value={form.location}
-            placeholder="City, State"
-            onChangeText={(value) =>
-              updateField("location", value)
+          <LocationPicker
+            stateCode={stateCode}
+            locationId={locationId}
+            locationName={
+              parseSavedLocation(form.location).city
             }
+            onStateChange={(code) => {
+              setStateCode(code);
+              setLocationId(null);
+              updateField("location", "");
+            }}
+            onSelect={(location) => {
+              setLocationId(location?.id ?? null);
+
+              updateField(
+                "location",
+                location ? `${location.name}, ${location.state_code}` : ""
+              );
+            }}
           />
         </SettingsCard>
 

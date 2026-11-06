@@ -9,7 +9,7 @@ export default function CommunitiesLayout() {
       }}
     >
       <Stack.Screen name="index" />
-      <Stack.Screen name="communities" />
+      <Stack.Screen name="community_home" />
     </Stack>
   );
 }

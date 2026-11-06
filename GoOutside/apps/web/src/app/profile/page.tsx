@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient } from "../../lib/supabase/client";
 import AvatarUpload from "../../components/profile/AvatarUpload";
 import BannerUpload from "../../components/profile/BannerUpload";
+import LocationPicker, { type LocationOption } from "../../components/profile/LocationPicker";
 
 const accentColors = [
   "#0D9488",
@@ -15,6 +16,29 @@ const accentColors = [
   "#EC4899",
   "#F59E0B",
 ];
+
+function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+
+  if (digits.length <= 3) {
+    return digits;
+  }
+
+  if (digits.length <= 6) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  }
+
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function isValidPhoneNumber(value: string): boolean {
+  if (!value.trim()) return true; // Optional field
+
+  const digits = value.replace(/\D/g, "");
+
+  // US phone numbers: 10 digits, area and exchange codes start with 2-9
+  return /^[2-9]\d{2}[2-9]\d{6}$/.test(digits);
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -29,6 +53,10 @@ export default function ProfilePage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
+  const [stateCode, setStateCode] = useState("");
+  const [locationId, setLocationId] = useState<number | null>(null);
+  const [originalStateCode, setOriginalStateCode] = useState("");
+  const [originalLocationId, setOriginalLocationId] = useState<number | null>(null);
 
   const [avatarPath, setAvatarPath] = useState<string | null>(null);
   const [bannerPath, setBannerPath] = useState<string | null>(null);
@@ -70,14 +98,14 @@ export default function ProfilePage() {
           fullName: "",
           email: currentUser.email ?? "",
           phone: currentUser.user_metadata?.phone ?? "",
-          location: currentUser.user_metadata?.location ?? "",
+          location: "",
         };
 
         // Fetch display name separately.
         const { data: profileData, error: profileError } =
           await supabase
             .from("Profile")
-            .select("displayName, profilePicturePath, bannerPath")
+            .select("displayName, profilePicturePath, bannerPath, locationID, stateCode")
             .eq("userID", currentUser.id)
             .maybeSingle();
 
@@ -91,11 +119,31 @@ export default function ProfilePage() {
           setError("Unable to load your display name.");
         } else {
           profile.fullName = profileData?.displayName ?? "";
+          const savedState = profileData?.stateCode ?? "";
+          const savedLocationId = profileData?.locationID ?? null;
+          setStateCode(savedState);
+          setLocationId(savedLocationId);
+          setOriginalStateCode(savedState);
+          setOriginalLocationId(savedLocationId);
+          if (savedLocationId !== null) {
+            const { data: locationRow, error: locationError } = await supabase
+              .from("Location")
+              .select("locationName, stateCode")
+              .eq("id", savedLocationId)
+              .maybeSingle();
+            if (!mounted) return;
+            if (locationError) {
+              console.error("Location lookup failed:", locationError);
+              setError("Unable to load your saved location.");
+            } else if (locationRow) {
+              profile.location = `${locationRow.locationName}, ${locationRow.stateCode}`;
+            }
+          }
         }
 
         setFullName(profile.fullName);
         setEmail(profile.email);
-        setPhone(profile.phone);
+        setPhone(formatPhoneNumber(profile.phone));
         setLocation(profile.location);
         setOriginal(profile);
         setAvatarPath(profileData?.profilePicturePath ?? null);
@@ -123,6 +171,8 @@ export default function ProfilePage() {
     setEmail(original.email);
     setPhone(original.phone);
     setLocation(original.location);
+    setStateCode(originalStateCode);
+    setLocationId(originalLocationId);
     setError("");
     setSuccess("");
   }
@@ -143,15 +193,30 @@ export default function ProfilePage() {
         throw new Error("Display name cannot be empty.");
       }
 
+      if (!isValidPhoneNumber(phone)) {
+        throw new Error(
+          "Please enter a valid 10-digit US phone number (123-456-7890)."
+        );
+      }
+
+      if (locationId !== null && !stateCode) {
+        throw new Error("Select a state for your location.");
+      }
+      if (locationId === null && location.trim()) {
+        throw new Error("Select a city or town from the search results.");
+      }
+
       // Update the Profile table
       const { data: updatedProfile, error: profileError } =
         await supabase
           .from("Profile")
           .update({
             displayName: newDisplayName,
+            stateCode: stateCode || null,
+            locationID: locationId,
           })
           .eq("userID", user.id)
-          .select("displayName")
+          .select("displayName, stateCode, locationID")
           .single();
 
       if (profileError) throw profileError;
@@ -166,7 +231,6 @@ export default function ProfilePage() {
             : {}),
           data: {
             phone: phone.trim(),
-            location: location.trim(),
           },
         });
 
@@ -177,11 +241,13 @@ export default function ProfilePage() {
       const saved = {
         fullName: updatedProfile.displayName,
         email: data.user?.email ?? user.email ?? "",
-        phone: phone.trim(),
+        phone: formatPhoneNumber(phone.trim()),
         location: location.trim(),
       };
 
       setOriginal(saved);
+      setOriginalStateCode(updatedProfile.stateCode ?? "");
+      setOriginalLocationId(updatedProfile.locationID ?? null);
       setFullName(saved.fullName);
       setPhone(saved.phone);
       setLocation(saved.location);
@@ -419,23 +485,36 @@ export default function ProfilePage() {
                   type="tel"
                   value={phone}
                   onChange={(event) =>
-                    setPhone(event.target.value)
+                    setPhone(formatPhoneNumber(event.target.value))
                   }
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="123-456-7890"
+                  maxLength={12}
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  aria-invalid={Boolean(phone) && !isValidPhoneNumber(phone)}
                 />
+
+                {phone.length > 0 && !isValidPhoneNumber(phone) && (
+                  <small style={{ color: "#B42318" }}>
+                    Enter a valid 10-digit US phone number.
+                  </small>
+                )}
               </label>
 
-              <label>
-                <span>Location</span>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(event) =>
-                    setLocation(event.target.value)
-                  }
-                  placeholder="City, State"
-                />
-              </label>
+              <LocationPicker
+                stateCode={stateCode}
+                locationId={locationId}
+                locationName={location.replace(/,\s*[A-Z]{2}$/, "")}
+                onStateChange={(code) => {
+                  setStateCode(code);
+                  setLocationId(null);
+                  setLocation("");
+                }}
+                onSelect={(selected: LocationOption | null) => {
+                  setLocationId(selected?.id ?? null);
+                  setLocation(selected ? `${selected.name}, ${selected.state_code}` : "");
+                }}
+              />
             </div>
           </section>
 
