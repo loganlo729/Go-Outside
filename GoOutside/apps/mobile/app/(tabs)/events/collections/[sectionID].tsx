@@ -1,4 +1,3 @@
-
 // React hooks
 import React, {
   useCallback,
@@ -350,6 +349,7 @@ export default function MyEventCollectionScreen() {
               event={item}
               from="my_events"
               layout="horizontal"
+              returnTo={`/events/collections/${encodeURIComponent(sectionID)}`}
             />
           )}
           ListEmptyComponent={

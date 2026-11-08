@@ -54,6 +54,7 @@ type EventCardProps = {
   event: EventRecord;
   from?: "all_events" | "my_events";
   layout?: "default" | "horizontal";
+  returnTo?: string;
 };
 
 // --------------------------------------------------
@@ -94,6 +95,7 @@ export default function EventCard({
   event,
   from = "all_events",
   layout = "default",
+  returnTo,
 }: EventCardProps) {
   const router = useRouter();
   
@@ -147,9 +149,11 @@ export default function EventCard({
       params: {
         eventID: event.eventID,
         from,
+        ...(returnTo ? { returnTo } : {}),
       },
     });
   }
+
 
   // --------------------------------------------------
   // Load RSVP When Screen Receives Focus

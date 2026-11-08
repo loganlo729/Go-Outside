@@ -10,7 +10,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from "react-native";
 
 // Navigation
@@ -42,7 +41,6 @@ export default function CategoryEventsScreen() {
     categoryID: string;
   }>();
 
-  const { width } = useWindowDimensions();
 
   // --------------------------------------------------
   // State
@@ -116,9 +114,6 @@ export default function CategoryEventsScreen() {
       : event.categoryID === categoryID
   );
 
-  // Responsive grid
-  const columns = width >= 700 ? 2 : 1;
-
   // --------------------------------------------------
   // Back Navigation
   // --------------------------------------------------
@@ -185,6 +180,7 @@ export default function CategoryEventsScreen() {
               event={item}
               from="all_events"
               layout="horizontal"
+              returnTo={`/events/category/${encodeURIComponent(categoryID)}`}
             />
           )}
         />

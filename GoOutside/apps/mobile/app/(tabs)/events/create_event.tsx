@@ -1,7 +1,9 @@
-// React hooks
-import React, { useEffect, useState } from "react";
 
-// UI components
+import React, {
+  useEffect,
+  useState,
+} from "react";
+
 import {
   ActivityIndicator,
   Image,
@@ -15,37 +17,41 @@ import {
   View,
 } from "react-native";
 
-// Safe area
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+} from "react-native-safe-area-context";
 
-// Date and time pickers
 import DateTimePicker, {
   DateTimePickerAndroid,
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 
-// Image selection
 import * as ImagePicker from "expo-image-picker";
 
-// Navigation
-import { useRouter } from "expo-router";
+import {
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
 
-// Address autocomplete
+import EventImageCropper from "../../../src/components/events/EventImageCropper";
+
 import AddressAutocomplete from "../../../src/components/events/AddressAutocomplete";
 
-// Event services
 import {
   createEvent,
+  getEventByID,
   getEventCategories,
   type EventImage,
 } from "../../../src/services/events";
 
-// Category type
+import {
+  updateMobileEvent,
+} from "../../../src/services/eventManagement";
+
 import type {
   CategoryRecord,
 } from "../../../src/types/event";
 
-// Event validation
 import {
   MAX_COST,
   MAX_DESCRIPTION,
@@ -58,15 +64,11 @@ import {
   type EventDateTime,
 } from "../../../src/utils/eventValidation";
 
-// Supabase client
 import { supabase } from "../../../src/lib/supabase";
-
-// App theme
 import { theme } from "../../../src/constants/theme";
 
-
 // --------------------------------------------------
-// Constants and Types
+// Constants
 // --------------------------------------------------
 
 const green = theme.colors.primary;
@@ -78,13 +80,50 @@ type PickerTarget =
   | "endTime";
 
 // --------------------------------------------------
-// Date and Time Helpers
+// Date Helpers
 // --------------------------------------------------
 
-function dateFromValue(value: EventDateTime) {
+function dateFromValue(
+  value: EventDateTime
+): Date {
   return new Date(
     toISO(value) ?? new Date().toISOString()
   );
+}
+
+function fromISO(
+  value: string | null
+): EventDateTime {
+  if (!value) {
+    return emptyDateTime();
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return emptyDateTime();
+  }
+
+  const year = date.getFullYear();
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  const hour = date.getHours();
+
+  return {
+    date: `${year}-${month}-${day}`,
+    hour: String(hour % 12 || 12),
+    minute: String(
+      date.getMinutes()
+    ).padStart(2, "0"),
+    period: hour >= 12 ? "PM" : "AM",
+  };
 }
 
 function updateTime(
@@ -95,70 +134,151 @@ function updateTime(
 
   return {
     ...value,
-    hour: String((hour % 12) || 12),
-    minute: String(selected.getMinutes()).padStart(2, "0"),
+    hour: String(hour % 12 || 12),
+    minute: String(
+      selected.getMinutes()
+    ).padStart(2, "0"),
     period: hour >= 12 ? "PM" : "AM",
   };
 }
 
+function base64Size(value: string): number {
+  const padding = value.endsWith("==")
+    ? 2
+    : value.endsWith("=")
+      ? 1
+      : 0;
+
+  return (
+    Math.floor(value.length * 3 / 4) -
+    padding
+  );
+}
+
 // --------------------------------------------------
-// Create Event Screen
+// Create / Edit Event Screen
 // --------------------------------------------------
 
 export default function CreateEventScreen() {
   const router = useRouter();
+
+  const { edit } = useLocalSearchParams<{
+    edit?: string;
+  }>();
+
+  const editEventID =
+    typeof edit === "string" && edit
+      ? edit
+      : null;
+
+  const isEditMode = Boolean(editEventID);
+
+  const returnPath = editEventID
+    ? {
+        pathname: "/events/[eventID]" as const,
+        params: {
+          eventID: editEventID,
+          from: "my_events",
+        },
+      }
+    : "/events/my_events" as const;
 
   // --------------------------------------------------
   // Form State
   // --------------------------------------------------
 
   const [title, setTitle] = useState("");
-  const [categoryID, setCategoryID] = useState("");
-  const [description, setDescription] = useState("");
+  const [categoryID, setCategoryID] =
+    useState("");
+  const [description, setDescription] =
+    useState("");
 
-  const [start, setStart] = useState<EventDateTime>(
-    emptyDateTime
-  );
+  const [start, setStart] =
+    useState<EventDateTime>(emptyDateTime);
 
-  const [end, setEnd] = useState<EventDateTime>(
-    emptyDateTime
-  );
+  const [end, setEnd] =
+    useState<EventDateTime>(emptyDateTime);
 
-  const [location, setLocation] = useState("");
-  const [cost, setCost] = useState("0");
-  const [featured, setFeatured] = useState(false);
+  const [location, setLocation] =
+    useState("");
 
-  const [photo, setPhoto] = useState<EventImage | null>(
-    null
-  );
+  const [cost, setCost] =
+    useState("0");
+
+  const [featured, setFeatured] =
+    useState(false);
+
+  // --------------------------------------------------
+  // Photo State
+  // --------------------------------------------------
+
+  const [photo, setPhoto] =
+    useState<EventImage | null>(null);
+
+  const [originalPhoto, setOriginalPhoto] =
+    useState<ImagePicker.ImagePickerAsset | null>(
+      null
+    );
+
+  const [photoToCrop, setPhotoToCrop] =
+    useState<ImagePicker.ImagePickerAsset | null>(
+      null
+    );
+
+  const [existingImageURL, setExistingImageURL] =
+    useState<string | null>(null);
+
+  const [
+    removeExistingImage,
+    setRemoveExistingImage,
+  ] = useState(false);
+
+  const [editLoaded, setEditLoaded] =
+    useState(false);
+
+  const displayedPhotoURL =
+    photo?.uri ??
+    (removeExistingImage
+      ? null
+      : existingImageURL);
 
   // --------------------------------------------------
   // UI State
   // --------------------------------------------------
 
-  const [categories, setCategories] = useState<
-    CategoryRecord[]
-  >([]);
+  const [categories, setCategories] =
+    useState<CategoryRecord[]>([]);
 
-  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] =
+    useState(false);
 
-  const [picker, setPicker] = useState<
-    PickerTarget | null
-  >(null);
+  const [picker, setPicker] =
+    useState<PickerTarget | null>(null);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [signedIn, setSignedIn] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [signedIn, setSignedIn] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
 
   // --------------------------------------------------
-  // Load User and Categories
+  // Load User / Categories / Existing Draft
   // --------------------------------------------------
 
   useEffect(() => {
     let active = true;
 
-    (async () => {
+    async function load() {
+      setLoading(true);
+      setError("");
+      setEditLoaded(false);
+
       try {
         const {
           data: { user },
@@ -169,23 +289,104 @@ export default function CreateEventScreen() {
           throw authError;
         }
 
-        if (active) {
-          setSignedIn(!!user);
+        if (!active) return;
+
+        setSignedIn(Boolean(user));
+
+        if (!user) {
+          return;
         }
 
-        if (user) {
-          const result = await getEventCategories();
+        const result =
+          await getEventCategories();
 
-          if (active) {
-            setCategories(result);
+        if (!active) return;
+
+        setCategories(result);
+
+        // Edit mode: load the draft.
+
+        if (editEventID) {
+          const existing =
+            await getEventByID(editEventID);
+
+          if (!existing) {
+            throw new Error(
+              "Event not found."
+            );
           }
+
+          if (existing.userID !== user.id) {
+            throw new Error(
+              "Only the event owner can edit this event."
+            );
+          }
+
+          if (existing.status !== "drafted") {
+            throw new Error(
+              "Only draft events can be edited."
+            );
+          }
+
+          if (!active) return;
+
+          // Prepopulate all fields.
+
+          setTitle(
+            existing.eventTitle ?? ""
+          );
+
+          setCategoryID(
+            existing.categoryID ?? ""
+          );
+
+          setDescription(
+            existing.eventDescription ?? ""
+          );
+
+          setStart(
+            fromISO(
+              existing.eventStartTime
+            )
+          );
+
+          setEnd(
+            fromISO(
+              existing.eventEndTime
+            )
+          );
+
+          setLocation(
+            existing.eventLocation ?? ""
+          );
+
+          setCost(
+            String(existing.eventCost ?? 0)
+          );
+
+          setFeatured(
+            Boolean(existing.isFeatured)
+          );
+
+          // Existing stored photo.
+
+          setExistingImageURL(
+            existing.eventImageURL ?? null
+          );
+
+          setPhoto(null);
+          setOriginalPhoto(null);
+          setPhotoToCrop(null);
+          setRemoveExistingImage(false);
+
+          setEditLoaded(true);
         }
-      } catch (error) {
+      } catch (loadError) {
         if (active) {
           setError(
-            error instanceof Error
-              ? error.message
-              : "Unable to load form"
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load event form."
           );
         }
       } finally {
@@ -193,209 +394,305 @@ export default function CreateEventScreen() {
           setLoading(false);
         }
       }
-    })();
+    }
+
+    void load();
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [editEventID]);
 
   // --------------------------------------------------
-  // Select Event Photo
+  // Select Photo
   // --------------------------------------------------
 
   async function pickImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: false,
-      quality: 1,
-      base64: true,
-    });
-
-    if (result.canceled) {
+    if (saving || photoToCrop) {
       return;
     }
 
-    const asset = result.assets[0];
-    const mime = asset.mimeType;
+    try {
+      const result =
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: false,
+          quality: 1,
+          base64: true,
+        });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      if (!asset) return;
+
+      if (
+        asset.mimeType !== "image/jpeg" &&
+        asset.mimeType !== "image/png" &&
+        asset.mimeType !== "image/webp"
+      ) {
+        setError(
+          "Choose a JPG, PNG, or WebP photo."
+        );
+        return;
+      }
+
+      const size =
+        asset.fileSize ??
+        (asset.base64
+          ? base64Size(asset.base64)
+          : 0);
+
+      if (
+        size < 1 ||
+        size > MAX_IMAGE_BYTES
+      ) {
+        setError(
+          "Choose a photo no larger than 5 MB."
+        );
+        return;
+      }
+
+      if (
+        !asset.width ||
+        !asset.height
+      ) {
+        throw new Error(
+          "Unable to read image dimensions."
+        );
+      }
+
+      // Crop before accepting the photo.
+
+      setPhotoToCrop(asset);
+      setError("");
+    } catch (pickError) {
+      setError(
+        pickError instanceof Error
+          ? pickError.message
+          : "Unable to select photo."
+      );
+    }
+  }
+
+  // --------------------------------------------------
+  // Apply Cropped Photo
+  // --------------------------------------------------
+
+  function handleApplyCrop(cropped: {
+    uri: string;
+    width: number;
+    height: number;
+    base64: string;
+  }) {
+    if (!photoToCrop) return;
+
+    const size = base64Size(
+      cropped.base64
+    );
 
     if (
-      mime !== "image/jpeg" &&
-      mime !== "image/png" &&
-      mime !== "image/webp"
+      size < 1 ||
+      size > MAX_IMAGE_BYTES
     ) {
-      setError("Choose a JPG, PNG, or WebP photo.");
-      return;
-    }
-
-    if (!asset.base64) {
       setError(
-        "Unable to read this photo. Choose another image."
+        "Cropped image must be no larger than 5 MB."
       );
       return;
     }
 
-    const estimatedSize =
-      asset.fileSize ??
-      Math.floor((asset.base64.length * 3) / 4);
+    // Keep the source for recropping.
 
-    if (
-      estimatedSize < 1 ||
-      estimatedSize > MAX_IMAGE_BYTES
-    ) {
-      setError("Choose a photo no larger than 5 MB.");
-      return;
-    }
+    setOriginalPhoto(photoToCrop);
+
+    // Upload the resulting JPEG.
 
     setPhoto({
-      uri: asset.uri,
-      base64: asset.base64,
-      mimeType: mime,
-      size: estimatedSize,
+      uri: cropped.uri,
+      base64: cropped.base64,
+      mimeType: "image/jpeg",
+      size,
     });
+
+    setRemoveExistingImage(false);
+    setPhotoToCrop(null);
+    setError("");
+  }
+
+  // --------------------------------------------------
+  // Remove Photo
+  // --------------------------------------------------
+
+  function removePhoto() {
+    if (saving) return;
+
+    setPhoto(null);
+    setOriginalPhoto(null);
+    setPhotoToCrop(null);
+
+    if (isEditMode) {
+      setRemoveExistingImage(true);
+    }
 
     setError("");
   }
 
   // --------------------------------------------------
-  // Handle Native Date / Time Picker
+  // Native Date / Time Picker
   // --------------------------------------------------
 
-    function openPicker(target: PickerTarget) {
+  function openPicker(target: PickerTarget) {
     setError("");
 
-    // Android: Open the system's native dialog directly.
-
     if (Platform.OS === "android") {
-        const isStart = target.startsWith("start");
-        const isDate = target.endsWith("Date");
+      const isStart =
+        target.startsWith("start");
 
-        const selectedValue = isStart
+      const isDate =
+        target.endsWith("Date");
+
+      const value = isStart
         ? dateFromValue(start)
         : dateFromValue(end);
 
-        const currentValue =
+      const currentValue =
         isDate && !isStart && !end.date
-            ? start.date
-            ? new Date(`${start.date}T12:00:00`)
+          ? start.date
+            ? new Date(
+                `${start.date}T12:00:00`
+              )
             : new Date()
-            : selectedValue;
+          : value;
 
-        DateTimePickerAndroid.open({
+      DateTimePickerAndroid.open({
         value: currentValue,
         mode: isDate ? "date" : "time",
         is24Hour: false,
         minimumDate: isDate
-            ? target === "startDate"
+          ? target === "startDate"
             ? today
             : minEnd
-            : undefined,
-
+          : undefined,
         onChange: (event, selected) => {
-            if (event.type !== "set" || !selected) {
-            return;
-            }
-
-            applyPickerValue(target, selected);
+          if (
+            event.type === "set" &&
+            selected
+          ) {
+            applyPickerValue(
+              target,
+              selected
+            );
+          }
         },
-        });
+      });
 
-        return;
+      return;
     }
-
-    // iOS: Display the spinner within the form.
 
     setPicker(target);
-    }
+  }
 
-  
-    function applyPickerValue(
+  function applyPickerValue(
     target: PickerTarget,
     selected: Date
-    ) {
+  ) {
     if (target === "startDate") {
-        const date = localDate(selected);
+      const date = localDate(selected);
 
-        setStart((previous) => ({
+      setStart((previous) => ({
         ...previous,
         date,
-        }));
+      }));
 
-        setEnd((previous) => ({
+      // Default end date to start date.
+
+      setEnd((previous) => ({
         ...previous,
         date,
-        }));
+      }));
 
-        return;
+      return;
     }
 
     if (target === "endDate") {
-        const date = localDate(selected);
+      const date = localDate(selected);
 
-        if (date < (start.date || localDate())) {
+      if (
+        date <
+        (start.date || localDate())
+      ) {
         setError(
-            "End date cannot precede start date."
+          "End date cannot precede start date."
         );
         return;
-        }
+      }
 
-        setEnd((previous) => ({
+      setEnd((previous) => ({
         ...previous,
         date,
-        }));
+      }));
 
-        return;
+      return;
     }
 
     if (target === "startTime") {
-        setStart((previous) =>
+      setStart((previous) =>
         updateTime(previous, selected)
-        );
-
-        return;
+      );
+      return;
     }
 
     if (target === "endTime") {
-        setEnd((previous) =>
+      setEnd((previous) =>
         updateTime(previous, selected)
-        );
+      );
     }
-    }
+  }
 
-    function onPickerChange(
+  function onPickerChange(
     event: DateTimePickerEvent,
     selected?: Date
-    ) {
+  ) {
     if (
-        event.type !== "set" ||
-        !selected ||
-        !picker
+      event.type !== "set" ||
+      !selected ||
+      !picker
     ) {
-        return;
+      return;
     }
 
-    applyPickerValue(picker, selected);
-    }
-
+    applyPickerValue(
+      picker,
+      selected
+    );
+  }
 
   // --------------------------------------------------
-  // Save Draft / Publish Event
+  // Save Draft / Publish / Edit
   // --------------------------------------------------
 
   async function save(
     status: "drafted" | "publicActive"
   ) {
-    if (saving) {
+    if (
+      saving ||
+      photoToCrop ||
+      (isEditMode && !editLoaded)
+    ) {
       return;
     }
 
     setError("");
 
     const cleanTitle = title.trim();
-    const cleanDescription = description.trim();
+    const cleanDescription =
+      description.trim();
     const cleanLocation = location.trim();
 
-    // Validate cost
+    // Cost validation.
 
     const costError = validateCost(cost);
 
@@ -404,27 +701,31 @@ export default function CreateEventScreen() {
       return;
     }
 
-    // Validate text limits
+    // Length validation.
 
     if (
       cleanTitle.length > MAX_TITLE ||
       description.length > MAX_DESCRIPTION
     ) {
-      setError("Title or description is too long.");
+      setError(
+        "Title or description is too long."
+      );
       return;
     }
 
-    // Validate dates and times
+    // Date validation.
 
     const startISO = toISO(start);
     const endISO = toISO(end);
-    const today = localDate();
+    const todayValue = localDate();
 
     if (
-      (start.date && start.date < today) ||
-      (end.date && end.date < today)
+      (start.date && start.date < todayValue) ||
+      (end.date && end.date < todayValue)
     ) {
-      setError("Past calendar dates are not allowed.");
+      setError(
+        "Past calendar dates are not allowed."
+      );
       return;
     }
 
@@ -432,7 +733,9 @@ export default function CreateEventScreen() {
       (start.date && !startISO) ||
       (end.date && !endISO)
     ) {
-      setError("Enter valid dates and times.");
+      setError(
+        "Enter valid dates and times."
+      );
       return;
     }
 
@@ -441,7 +744,9 @@ export default function CreateEventScreen() {
       end.date &&
       end.date < start.date
     ) {
-      setError("End date cannot precede start date.");
+      setError(
+        "End date cannot precede start date."
+      );
       return;
     }
 
@@ -456,7 +761,7 @@ export default function CreateEventScreen() {
       return;
     }
 
-    // Additional publishing requirements
+    // Publishing requires complete fields.
 
     if (status === "publicActive") {
       if (
@@ -466,10 +771,10 @@ export default function CreateEventScreen() {
         !startISO ||
         !endISO ||
         !cleanLocation ||
-        !photo
+        !displayedPhotoURL
       ) {
         setError(
-          "Complete every field and select a photo before publishing."
+          "Complete all required fields and select a photo before publishing."
         );
         return;
       }
@@ -480,46 +785,69 @@ export default function CreateEventScreen() {
       );
 
       if (!validCategory) {
-        setError("Select a valid category.");
+        setError(
+          "Select a valid category."
+        );
         return;
       }
 
       if (
-        new Date(startISO).getTime() < Date.now()
+        new Date(startISO).getTime() <=
+        Date.now()
       ) {
         setError(
-          "Published events cannot start in the past."
+          "Published events must start in the future."
         );
         return;
       }
     }
 
-    // Save to Supabase
+    // Save.
 
     setSaving(true);
 
     try {
-      await createEvent(
-        {
-          eventTitle: cleanTitle || null,
-          categoryID: categoryID || null,
-          eventDescription:
-            cleanDescription || null,
-          eventStartTime: startISO,
-          eventEndTime: endISO,
-          eventLocation: cleanLocation || null,
-          eventCost: Number(cost.trim() || 0),
-          isFeatured: featured,
-          status,
-        },
-        photo
-      );
+      const input = {
+        eventTitle: cleanTitle || null,
+        categoryID: categoryID || null,
+        eventDescription:
+          cleanDescription || null,
+        eventStartTime: startISO,
+        eventEndTime: endISO,
+        eventLocation: cleanLocation || null,
+        eventCost: Number(cost.trim() || 0),
+        isFeatured: featured,
+        status,
+      };
 
-      router.replace("/events/my_events");
-    } catch (error) {
+      if (editEventID) {
+        if (status !== "drafted") {
+          throw new Error(
+            "Save changes, then publish from Event Details."
+          );
+        }
+
+        // Update, never insert another event.
+
+        await updateMobileEvent(
+          editEventID,
+          input,
+          photo,
+          removeExistingImage
+        );
+
+        router.replace(returnPath);
+      } else {
+        await createEvent(input, photo);
+
+        router.replace(
+          "/events/my_events"
+        );
+      }
+    } catch (saveError) {
       setError(
-        error instanceof Error
-          ? error.message
+        saveError instanceof Error
+          ? saveError.message
           : "Unable to save event."
       );
     } finally {
@@ -542,14 +870,18 @@ export default function CreateEventScreen() {
         })
       : "Select date";
 
-  const displayTime = (value: EventDateTime) =>
+  const displayTime = (
+    value: EventDateTime
+  ) =>
     `${value.hour}:${value.minute} ${value.period}`;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const minEnd = start.date
-    ? new Date(`${start.date}T00:00:00`)
+    ? new Date(
+        `${start.date}T00:00:00`
+      )
     : today;
 
   // --------------------------------------------------
@@ -559,7 +891,10 @@ export default function CreateEventScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.center}>
-        <ActivityIndicator color={green} />
+        <ActivityIndicator
+          color={green}
+          size="large"
+        />
       </SafeAreaView>
     );
   }
@@ -572,17 +907,19 @@ export default function CreateEventScreen() {
     return (
       <SafeAreaView style={styles.center}>
         <Text style={styles.heading}>
-          Sign in to create an event
+          Sign in to manage events
         </Text>
 
         <Pressable
           style={styles.primary}
           onPress={() =>
-            router.push("/Login_Sign_Up/login")
+            router.push(
+              "/Login_Sign_Up/login"
+            )
           }
         >
           <Text style={styles.primaryText}>
-            Log in
+            Log In
           </Text>
         </Pressable>
 
@@ -596,7 +933,38 @@ export default function CreateEventScreen() {
   }
 
   // --------------------------------------------------
-  // Main Form
+  // Invalid / Unauthorized Edit
+  // --------------------------------------------------
+
+  if (isEditMode && !editLoaded) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <Text style={styles.heading}>
+          Unable to Edit Event
+        </Text>
+
+        <Text style={styles.error}>
+          {error ||
+            "Draft could not be loaded."}
+        </Text>
+
+        <Pressable
+          onPress={() =>
+            router.replace(
+              "/events/my_events"
+            )
+          }
+        >
+          <Text style={styles.cancel}>
+            Back to My Events
+          </Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
+  // --------------------------------------------------
+  // Form
   // --------------------------------------------------
 
   return (
@@ -604,22 +972,25 @@ export default function CreateEventScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-
         <Text style={styles.eyebrow}>
           EVENT MANAGEMENT
         </Text>
 
         <Text style={styles.heading}>
-          Create an Event
+          {isEditMode
+            ? "Edit Event"
+            : "Create an Event"}
         </Text>
 
         <Text style={styles.help}>
-          Save a draft or publish when ready.
+          {isEditMode
+            ? "Update your draft and save changes."
+            : "Save a draft or publish when ready."}
         </Text>
 
-        {/* Event Title */}
+        {/* Title */}
 
         <Text style={styles.label}>
           Event Title
@@ -632,6 +1003,7 @@ export default function CreateEventScreen() {
           onChangeText={setTitle}
           placeholder="Enter event title"
           placeholderTextColor="#89938B"
+          editable={!saving}
         />
 
         <Text style={styles.counter}>
@@ -647,13 +1019,15 @@ export default function CreateEventScreen() {
         <Pressable
           style={styles.input}
           onPress={() =>
-            setCategoryOpen((previous) => !previous)
+            setCategoryOpen(
+              (previous) => !previous
+            )
           }
         >
           <Text style={styles.inputText}>
             {categories.find(
-              (category) =>
-                category.categoryID === categoryID
+              (item) =>
+                item.categoryID === categoryID
             )?.categoryName ||
               "Select a category ▾"}
           </Text>
@@ -661,24 +1035,26 @@ export default function CreateEventScreen() {
 
         {categoryOpen && (
           <View style={styles.options}>
-            {categories.map((category) => (
+            {categories.map((item) => (
               <Pressable
-                key={category.categoryID}
+                key={item.categoryID}
                 style={styles.option}
                 onPress={() => {
-                  setCategoryID(category.categoryID);
+                  setCategoryID(
+                    item.categoryID
+                  );
                   setCategoryOpen(false);
                 }}
               >
                 <Text style={styles.inputText}>
-                  {category.categoryName}
+                  {item.categoryName}
                 </Text>
               </Pressable>
             ))}
           </View>
         )}
 
-        {/* Event Cost */}
+        {/* Cost */}
 
         <Text style={styles.label}>
           Event Cost ($)
@@ -691,16 +1067,17 @@ export default function CreateEventScreen() {
           keyboardType="decimal-pad"
           placeholder="0.00"
           placeholderTextColor="#89938B"
+          editable={!saving}
         />
 
         <Text style={styles.help}>
-          $0–$
+          Enter 0 for free. Maximum: $
           {MAX_COST.toLocaleString("en-US", {
             minimumFractionDigits: 2,
           })}
         </Text>
 
-        {/* Event Description */}
+        {/* Description */}
 
         <Text style={styles.label}>
           Event Description
@@ -718,13 +1095,14 @@ export default function CreateEventScreen() {
           onChangeText={setDescription}
           placeholder="Describe your event..."
           placeholderTextColor="#89938B"
+          editable={!saving}
         />
 
         <Text style={styles.counter}>
           {description.length}/{MAX_DESCRIPTION}
         </Text>
 
-        {/* Start and End Dates */}
+        {/* Dates */}
 
         <View style={styles.row}>
           <View style={styles.half}>
@@ -762,7 +1140,7 @@ export default function CreateEventScreen() {
           </View>
         </View>
 
-        {/* Start and End Times */}
+        {/* Times */}
 
         <View style={styles.row}>
           <View style={styles.half}>
@@ -800,7 +1178,7 @@ export default function CreateEventScreen() {
           </View>
         </View>
 
-        {/* Native Date / Time Picker */}
+        {/* Native Picker */}
 
         {picker && (
           <View style={styles.pickerPanel}>
@@ -830,20 +1208,20 @@ export default function CreateEventScreen() {
               onChange={onPickerChange}
             />
 
-            {Platform.OS === "ios" && (
-              <Pressable
-                style={styles.pickerDone}
-                onPress={() => setPicker(null)}
-              >
-                <Text style={styles.primaryText}>
-                  Done
-                </Text>
-              </Pressable>
-            )}
+            <Pressable
+              style={styles.pickerDone}
+              onPress={() =>
+                setPicker(null)
+              }
+            >
+              <Text style={styles.primaryText}>
+                Done
+              </Text>
+            </Pressable>
           </View>
         )}
 
-        {/* Event Location */}
+        {/* Location */}
 
         <Text style={styles.label}>
           Event Location
@@ -855,7 +1233,7 @@ export default function CreateEventScreen() {
           disabled={saving}
         />
 
-        {/* Featured Post */}
+        {/* Featured */}
 
         <View style={styles.switchRow}>
           <Text style={styles.label}>
@@ -865,10 +1243,10 @@ export default function CreateEventScreen() {
           <Switch
             value={featured}
             onValueChange={setFeatured}
+            disabled={saving}
             trackColor={{
               true: green,
             }}
-            disabled={saving}
           />
         </View>
 
@@ -880,41 +1258,77 @@ export default function CreateEventScreen() {
 
         <Pressable
           style={styles.photoArea}
-          onPress={() => void pickImage()}
           disabled={saving}
+          onPress={() =>
+            void pickImage()
+          }
         >
-          {photo ? (
+          {displayedPhotoURL ? (
             <>
               <Image
-                source={{ uri: photo.uri }}
+                source={{
+                  uri: displayedPhotoURL,
+                }}
                 style={styles.preview}
-                resizeMode="contain"
+                resizeMode="cover"
               />
 
               <Text style={styles.help}>
-                Change photo ·{" "}
-                {(photo.size / 1048576).toFixed(2)} MB
+                {photo
+                  ? `${(photo.size / 1048576).toFixed(2)} MB · Cropped 16:9`
+                  : "Current event photo"}
               </Text>
             </>
           ) : (
             <Text style={styles.inputText}>
-              + Choose Photo (JPG, PNG or WebP, up to 5 MB)
+              + Choose Photo (JPG, PNG, or WebP)
             </Text>
           )}
         </Pressable>
 
-        {photo && (
-          <Pressable
-            onPress={() => setPhoto(null)}
-            disabled={saving}
-          >
-            <Text style={styles.remove}>
-              Remove photo
-            </Text>
-          </Pressable>
+        {!!displayedPhotoURL && (
+          <View style={styles.photoActions}>
+            <Pressable
+              style={styles.photoAction}
+              disabled={saving}
+              onPress={() =>
+                void pickImage()
+              }
+            >
+              <Text style={styles.actionText}>
+                Change
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.photoAction}
+              disabled={
+                saving || !originalPhoto
+              }
+              onPress={() => {
+                if (originalPhoto) {
+                  setPhotoToCrop(originalPhoto);
+                }
+              }}
+            >
+              <Text style={styles.actionText}>
+                Crop
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.photoAction}
+              disabled={saving}
+              onPress={removePhoto}
+            >
+              <Text style={styles.remove}>
+                Remove
+              </Text>
+            </Pressable>
+          </View>
         )}
 
-        {/* Validation / Submission Errors */}
+        {/* Error */}
 
         {!!error && (
           <Text
@@ -925,51 +1339,98 @@ export default function CreateEventScreen() {
           </Text>
         )}
 
-        {/* Form Actions */}
+        {/* Save Buttons */}
 
         <View style={styles.row}>
-          <Pressable
-            style={[
-              styles.draft,
-              styles.half,
-            ]}
-            disabled={saving}
-            onPress={() => void save("drafted")}
-          >
-            <Text style={styles.draftText}>
-              {saving
-                ? "Saving..."
-                : "Save as Draft"}
-            </Text>
-          </Pressable>
+          {isEditMode ? (
+            <Pressable
+              style={[
+                styles.primary,
+                styles.half,
+              ]}
+              disabled={
+                saving || !!photoToCrop
+              }
+              onPress={() =>
+                void save("drafted")
+              }
+            >
+              <Text style={styles.primaryText}>
+                {saving
+                  ? "Saving..."
+                  : "Save Changes"}
+              </Text>
+            </Pressable>
+          ) : (
+            <>
+              <Pressable
+                style={[
+                  styles.draft,
+                  styles.half,
+                ]}
+                disabled={
+                  saving || !!photoToCrop
+                }
+                onPress={() =>
+                  void save("drafted")
+                }
+              >
+                <Text style={styles.draftText}>
+                  {saving
+                    ? "Saving..."
+                    : "Save as Draft"}
+                </Text>
+              </Pressable>
 
-          <Pressable
-            style={[
-              styles.primary,
-              styles.half,
-            ]}
-            disabled={saving}
-            onPress={() => void save("publicActive")}
-          >
-            <Text style={styles.primaryText}>
-              {saving
-                ? "Saving..."
-                : "Publish Event"}
-            </Text>
-          </Pressable>
+              <Pressable
+                style={[
+                  styles.primary,
+                  styles.half,
+                ]}
+                disabled={
+                  saving || !!photoToCrop
+                }
+                onPress={() =>
+                  void save("publicActive")
+                }
+              >
+                <Text style={styles.primaryText}>
+                  {saving
+                    ? "Saving..."
+                    : "Publish Event"}
+                </Text>
+              </Pressable>
+            </>
+          )}
         </View>
 
-        {/* Cancel */}
-
         <Pressable
-          onPress={() => router.back()}
           disabled={saving}
+          onPress={() =>
+            router.replace(returnPath)
+          }
         >
           <Text style={styles.cancel}>
             Cancel
           </Text>
         </Pressable>
       </ScrollView>
+
+      {/* Image Cropper Modal */}
+
+      {!!photoToCrop && (
+        <EventImageCropper
+          image={{
+            uri: photoToCrop.uri,
+            width: photoToCrop.width,
+            height: photoToCrop.height,
+          }}
+          onApply={handleApplyCrop}
+          onCancel={() =>
+            setPhotoToCrop(null)
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -983,178 +1444,191 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F6F7F3",
   },
-
+  content: {
+    padding: 20,
+    paddingBottom: 80,
+  },
   center: {
     flex: 1,
-    justifyContent: "center",
+    backgroundColor: "#F6F7F3",
     alignItems: "center",
+    justifyContent: "center",
     padding: 24,
+    gap: 14,
   },
-
-  content: {
-    padding: 22,
-    paddingBottom: 65,
-    gap: 10,
-  },
-
   eyebrow: {
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 2,
     color: "#5D7C57",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    marginBottom: 12,
   },
-
   heading: {
+    color: "#1F2E22",
     fontSize: 30,
     fontWeight: "800",
-    color: "#1F2E22",
+    marginBottom: 12,
   },
-
+  help: {
+    color: "#63715F",
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 14,
+  },
   label: {
+    color: "#1F2E22",
     fontSize: 14,
     fontWeight: "700",
-    color: "#1F2E22",
-    marginTop: 10,
+    marginTop: 20,
+    marginBottom: 8,
   },
-
-  help: {
-    fontSize: 12,
-    color: "#63715F",
-  },
-
-  counter: {
-    fontSize: 12,
-    color: "#63715F",
-    textAlign: "right",
-  },
-
   input: {
-    minHeight: 52,
-    borderColor: "#CFD6CB",
+    minHeight: 54,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
+    borderColor: "#CFD6CB",
     borderRadius: 12,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    backgroundColor: "#FFF",
-    fontSize: 16,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
+    fontSize: 15,
     color: "#1F2E22",
+    justifyContent: "center",
   },
-
   inputText: {
     color: "#1F2E22",
     fontSize: 15,
   },
-
   description: {
-    minHeight: 135,
-    paddingTop: 13,
+    minHeight: 150,
+    paddingTop: 15,
   },
-
+  counter: {
+    fontSize: 12,
+    color: "#758174",
+    textAlign: "right",
+    marginTop: 5,
+  },
   row: {
     flexDirection: "row",
+    alignItems: "flex-start",
     gap: 12,
-    alignItems: "flex-end",
+    marginTop: 8,
   },
-
   half: {
     flex: 1,
     minWidth: 0,
   },
-
   options: {
-    borderWidth: 1,
+    backgroundColor: "#FFFFFF",
     borderColor: "#CFD6CB",
+    borderWidth: 1,
     borderRadius: 12,
-    backgroundColor: "#FFF",
+    overflow: "hidden",
   },
-
   option: {
     padding: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#EAEDEA",
+    borderBottomColor: "#EDF0EA",
   },
-
   pickerPanel: {
-    backgroundColor: "#FFF",
+    backgroundColor: "#FFFFFF",
+    padding: 12,
     borderRadius: 12,
-    padding: 8,
-    marginTop: 8,
+    marginTop: 10,
   },
-
   pickerDone: {
-    backgroundColor: green,
+    alignItems: "center",
     padding: 12,
     borderRadius: 10,
-    alignItems: "center",
+    backgroundColor: green,
   },
-
   switchRow: {
+    marginTop: 22,
+    marginBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 12,
-    backgroundColor: "#FFF",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#CFD6CB",
-    marginTop: 12,
   },
-
   photoArea: {
+    minHeight: 180,
+    borderRadius: 16,
     borderWidth: 2,
-    borderColor: "#CFD6CB",
     borderStyle: "dashed",
-    borderRadius: 14,
-    padding: 18,
+    borderColor: "#CFD6CB",
+    backgroundColor: "#FAFBF8",
+    padding: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FAFBF8",
-    minHeight: 110,
   },
-
   preview: {
     width: "100%",
-    height: 190,
+    aspectRatio: 16 / 9,
+    borderRadius: 12,
+    backgroundColor: "#EEF1EA",
   },
-
+  photoActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 12,
+  },
+  photoAction: {
+    borderWidth: 1,
+    borderColor: "#B8C9B2",
+    backgroundColor: "#E5EADF",
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+  },
+  actionText: {
+    color: "#2F5B35",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   remove: {
     color: "#B42318",
-    alignSelf: "center",
-    marginTop: 7,
+    fontSize: 14,
+    fontWeight: "700",
   },
-
-  error: {
-    color: "#B42318",
-    marginTop: 10,
+  primary: {
+    backgroundColor: green,
+    borderRadius: 12,
+    padding: 15,
+    minHeight: 50,
+    alignItems: "center",
+    justifyContent: "center",
   },
-
+  primaryText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   draft: {
     backgroundColor: "#E5EADF",
-    borderRadius: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#B8C9B2",
     padding: 15,
+    minHeight: 50,
     alignItems: "center",
+    justifyContent: "center",
   },
-
   draftText: {
     color: "#2F5B35",
     fontWeight: "700",
+    fontSize: 14,
   },
-
-  primary: {
-    backgroundColor: green,
-    borderRadius: 11,
-    padding: 15,
-    alignItems: "center",
-  },
-
-  primaryText: {
-    color: "#FFF",
-    fontWeight: "700",
-  },
-
   cancel: {
-    color: "#63715F",
+    color: green,
+    fontWeight: "700",
     textAlign: "center",
-    marginTop: 12,
+    marginTop: 24,
+    padding: 10,
+  },
+  error: {
+    color: "#B42318",
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 16,
   },
 });

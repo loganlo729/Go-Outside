@@ -1,50 +1,61 @@
-// React hooks
+
 import React, {
   useCallback,
+  useRef,
   useState,
 } from "react";
 
-// UI components
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
 } from "react-native";
 
-// Navigation hooks
 import {
   useFocusEffect,
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
 
-// Icons
 import { Ionicons } from "@expo/vector-icons";
 
-// Event services
+import { supabase } from "../../../src/lib/supabase";
+
 import {
+  addEventRSVP,
   getEventByID,
   getEventCategories,
+  getEventRSVP,
+  removeEventRSVP,
+  subscribeToRSVPChanges,
 } from "../../../src/services/events";
 
-// Event type
+import {
+  cancelMobileEvent,
+  deleteMobileDraft,
+  publishMobileEvent,
+} from "../../../src/services/eventManagement";
+
 import type {
   EventRecord,
 } from "../../../src/types/event";
 
-// Formatting utilities
 import {
   formatEventCost,
   formatEventDate,
 } from "../../../src/utils/eventFormat";
 
-// Supabase client
-import { supabase } from "../../../src/lib/supabase";
+// --------------------------------------------------
+// Theme
+// --------------------------------------------------
 
+const GREEN = "#4C7A45";
+const INK = "#1F2E22";
 
 // --------------------------------------------------
 // Event Details Screen
@@ -53,35 +64,23 @@ import { supabase } from "../../../src/lib/supabase";
 export default function EventDetailsScreen() {
   const router = useRouter();
 
-  // --------------------------------------------------
-  // Route Parameters
-  // --------------------------------------------------
-
   const { eventID, from } = useLocalSearchParams<{
     eventID: string;
     from?: string;
   }>();
 
-  // --------------------------------------------------
-  // Determine Originating Dashboard
-  // --------------------------------------------------
-
-  const activeDashboard =
+  const origin =
     from === "my_events"
       ? "my_events"
       : "all_events";
 
   const backPath =
-    activeDashboard === "my_events"
+    origin === "my_events"
       ? "/events/my_events"
       : "/events/all_events";
 
-  function backToEvents() {
-    router.replace(backPath);
-  }
-
   // --------------------------------------------------
-  // State
+  // Event State
   // --------------------------------------------------
 
   const [event, setEvent] =
@@ -90,503 +89,778 @@ export default function EventDetailsScreen() {
   const [categoryName, setCategoryName] =
     useState("Uncategorized");
 
-  const [currentUserID, setCurrentUserID] =
+  const [hostName, setHostName] =
+    useState("Loading...");
+
+  const [viewerID, setViewerID] =
     useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   // --------------------------------------------------
-  // Load Event Details When Screen Receives Focus
+  // Event Management State
   // --------------------------------------------------
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
+  const [managing, setManaging] = useState<
+    "cancel" | "publish" | "delete" | null
+  >(null);
 
-      async function loadEvent() {
-        setLoading(true);
-        setError("");
-        setEvent(null);
-        setCategoryName("Uncategorized");
+  const [managementError, setManagementError] =
+    useState("");
 
-        try {
-          // ----------------------------------------
-          // Validate Event ID
-          // ----------------------------------------
+  const [confirmDelete, setConfirmDelete] =
+    useState(false);
 
-          if (
-            typeof eventID !== "string" ||
-            !eventID
-          ) {
-            throw new Error("Invalid event ID.");
-          }
-
-          // ----------------------------------------
-          // Load Event, Categories, and Auth Session
-          // ----------------------------------------
-
-          const [
-            eventResult,
-            categories,
-            sessionResult,
-          ] = await Promise.all([
-            getEventByID(eventID),
-            getEventCategories(),
-            supabase.auth.getSession(),
-          ]);
-
-          if (sessionResult.error) {
-            throw sessionResult.error;
-          }
-
-          if (!active) {
-            return;
-          }
-
-          // ----------------------------------------
-          // Save Event Information
-          // ----------------------------------------
-
-          setEvent(eventResult);
-
-          const category = categories.find(
-            (item) =>
-              item.categoryID ===
-              eventResult?.categoryID
-          );
-
-          setCategoryName(
-            category?.categoryName ??
-              "Uncategorized"
-          );
-
-          // ----------------------------------------
-          // Identify Authenticated User
-          // ----------------------------------------
-
-          if (!sessionResult.data.session) {
-            // Signed-out visitors can still view
-            // publicly available event details.
-
-            setCurrentUserID(null);
-          } else {
-            const {
-              data: { user },
-              error: authError,
-            } = await supabase.auth.getUser();
-
-            if (!active) {
-              return;
-            }
-
-            if (authError) {
-              // If the session expired, treat the
-              // visitor as signed out.
-
-              if (
-                authError.name ===
-                  "AuthSessionMissingError" ||
-                authError.status === 401
-              ) {
-                setCurrentUserID(null);
-              } else {
-                throw authError;
-              }
-            } else {
-              setCurrentUserID(user?.id ?? null);
-            }
-          }
-        } catch (err) {
-          if (active) {
-            console.error(
-              "Unable to load event details:",
-              err
-            );
-
-            setError(
-              err instanceof Error
-                ? err.message
-                : "Unable to load event details."
-            );
-          }
-        } finally {
-          if (active) {
-            setLoading(false);
-          }
-        }
-      }
-
-      void loadEvent();
-
-      return () => {
-        active = false;
-      };
-    }, [eventID])
-  );
+  const managingRef = useRef(false);
 
   // --------------------------------------------------
-  // Event Ownership and Status
+  // RSVP State
   // --------------------------------------------------
 
-  const isOwner =
-    !!event &&
-    !!currentUserID &&
-    event.userID === currentUserID;
+  const [going, setGoing] = useState(false);
+
+  const [rsvpLoading, setRSVPLoading] =
+    useState(true);
+
+  const [rsvpSaving, setRSVPSaving] =
+    useState(false);
+
+  const [rsvpError, setRSVPError] =
+    useState("");
+
+  const rsvpSavingRef = useRef(false);
+  const rsvpVersion = useRef(0);
+
+  // --------------------------------------------------
+  // Event Status and Permissions
+  // --------------------------------------------------
+
+  const isPublished =
+    event?.status === "publicActive";
+
+  const isDrafted =
+    event?.status === "drafted";
 
   const isUpcoming =
     !!event?.eventStartTime &&
     new Date(event.eventStartTime).getTime() >
       Date.now();
 
-  const isPublished =
-    event?.status === "publicActive";
+  const canRSVP = isPublished && isUpcoming;
+
+  const isOwner =
+    !!event &&
+    !!viewerID &&
+    event.userID === viewerID;
+
+  // --------------------------------------------------
+  // Load Event
+  // --------------------------------------------------
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      if (!eventID) {
+        throw new Error("Invalid event ID.");
+      }
+
+      const [result, categories, auth] =
+        await Promise.all([
+          getEventByID(eventID),
+          getEventCategories().catch(() => []),
+          supabase.auth.getUser(),
+        ]);
+
+      if (auth.error) {
+        throw auth.error;
+      }
+
+      setEvent(result);
+
+      setViewerID(
+        auth.data.user?.id ?? null
+      );
+
+      setCategoryName(
+        categories.find(
+          (item) =>
+            item.categoryID === result?.categoryID
+        )?.categoryName ?? "Uncategorized"
+      );
+
+      // Load event host.
+
+      if (result?.userID) {
+        const { data, error: hostError } =
+          await supabase
+            .from("Profile")
+            .select("displayName")
+            .eq("userID", result.userID)
+            .maybeSingle();
+
+        if (hostError) {
+          console.error(hostError);
+        }
+
+        setHostName(
+          data?.displayName ?? "Unknown"
+        );
+      } else {
+        setHostName("Unknown");
+      }
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load event."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [eventID]);
+
+  // Refresh when returning from Edit Event.
+
+  useFocusEffect(
+    useCallback(() => {
+      void reload();
+    }, [reload])
+  );
+
+  // --------------------------------------------------
+  // Load RSVP and Subscribe to Changes
+  // --------------------------------------------------
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      let currentUserID: string | null = null;
+
+      const selectedID = event?.eventID;
+
+      const initialVersion =
+        ++rsvpVersion.current;
+
+      setGoing(false);
+      setRSVPLoading(true);
+      setRSVPError("");
+
+      if (!selectedID || !canRSVP) {
+        setRSVPLoading(false);
+
+        return () => {
+          active = false;
+        };
+      }
+
+      // Synchronize RSVP across event cards.
+
+      const unsubscribe = subscribeToRSVPChanges(
+        (changedEventID, changedUserID, isGoing) => {
+          if (
+            active &&
+            changedEventID === selectedID &&
+            changedUserID === currentUserID
+          ) {
+            rsvpVersion.current += 1;
+            setGoing(isGoing);
+          }
+        }
+      );
+
+      async function loadRSVP() {
+        try {
+          const {
+            data: { user },
+            error: authError,
+          } = await supabase.auth.getUser();
+
+          if (authError) {
+            throw authError;
+          }
+
+          if (!active || !user) {
+            return;
+          }
+
+          currentUserID = user.id;
+
+          const versionAtFetch =
+            rsvpVersion.current;
+
+          const hasRSVP = await getEventRSVP(
+            selectedID!,
+            user.id
+          );
+
+          if (
+            active &&
+            versionAtFetch === rsvpVersion.current
+          ) {
+            setGoing(hasRSVP);
+          }
+        } catch (loadError) {
+          if (active) {
+            setRSVPError(
+              loadError instanceof Error
+                ? loadError.message
+                : "Unable to load RSVP."
+            );
+          }
+        } finally {
+          if (active) {
+            setRSVPLoading(false);
+          }
+        }
+      }
+
+      void loadRSVP();
+
+      return () => {
+        active = false;
+        unsubscribe();
+
+        if (
+          rsvpVersion.current >= initialVersion
+        ) {
+          rsvpVersion.current += 1;
+        }
+      };
+    }, [event?.eventID, canRSVP])
+  );
+
+  // --------------------------------------------------
+  // Toggle RSVP
+  // --------------------------------------------------
+
+  async function handleRSVP() {
+    if (
+      !event ||
+      !canRSVP ||
+      rsvpLoading ||
+      rsvpSavingRef.current
+    ) {
+      return;
+    }
+
+    setRSVPError("");
+
+    if (!viewerID) {
+      router.push("/Login_Sign_Up/login");
+      return;
+    }
+
+    rsvpSavingRef.current = true;
+    setRSVPSaving(true);
+
+    try {
+      if (going) {
+        await removeEventRSVP(
+          event.eventID,
+          viewerID
+        );
+      } else {
+        await addEventRSVP(
+          event.eventID,
+          viewerID
+        );
+      }
+
+      rsvpVersion.current += 1;
+      setGoing(!going);
+    } catch (saveError) {
+      setRSVPError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to update RSVP."
+      );
+    } finally {
+      rsvpSavingRef.current = false;
+      setRSVPSaving(false);
+    }
+  }
+
+  // --------------------------------------------------
+  // Event Management
+  // --------------------------------------------------
+
+  async function handleManagement(
+    action: "cancel" | "publish" | "delete"
+  ) {
+    if (
+      !event ||
+      !isOwner ||
+      managingRef.current
+    ) {
+      return;
+    }
+
+    // Published events: cancel only.
+    if (action === "cancel" && !isPublished) {
+      return;
+    }
+
+    // Drafts: publish or delete.
+    if (
+      action !== "cancel" &&
+      !isDrafted
+    ) {
+      return;
+    }
+
+    // Delete requires the confirmation modal.
+    if (
+      action === "delete" &&
+      !confirmDelete
+    ) {
+      return;
+    }
+
+    managingRef.current = true;
+    setManaging(action);
+    setManagementError("");
+
+    try {
+      if (action === "cancel") {
+        await cancelMobileEvent(event.eventID);
+      } else if (action === "publish") {
+        await publishMobileEvent(event.eventID);
+      } else {
+        await deleteMobileDraft(event.eventID);
+      }
+
+      setConfirmDelete(false);
+
+      if (action === "delete") {
+        router.replace("/events/my_events");
+        return;
+      }
+
+      await reload();
+    } catch (manageError) {
+      setManagementError(
+        manageError instanceof Error
+          ? manageError.message
+          : "Unable to update event."
+      );
+    } finally {
+      managingRef.current = false;
+      setManaging(null);
+    }
+  }
+
+  // --------------------------------------------------
+  // Navigate to Edit Event
+  // --------------------------------------------------
+
+  function editEvent() {
+    if (!event || !isOwner || !isDrafted) {
+      return;
+    }
+
+    router.push({
+      pathname: "/events/create_event",
+      params: {
+        edit: event.eventID,
+      },
+    });
+  }
 
   // --------------------------------------------------
   // Render
   // --------------------------------------------------
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* ----------------------------------------
-          Events Dashboard Navigation
-      ---------------------------------------- */}
-
-      <View style={styles.tabs}>
-        {/* All Events */}
-
-        <Pressable
-          style={[
-            styles.tab,
-            activeDashboard === "all_events" &&
-              styles.activeTab,
-          ]}
-          onPress={() =>
-            router.replace("/events/all_events")
-          }
-          accessibilityRole="button"
-          accessibilityState={{
-            selected:
-              activeDashboard === "all_events",
-          }}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeDashboard === "all_events" &&
-                styles.activeTabText,
-            ]}
-          >
-            All Events
-          </Text>
-        </Pressable>
-
-        {/* My Events */}
-
-        <Pressable
-          style={[
-            styles.tab,
-            activeDashboard === "my_events" &&
-              styles.activeTab,
-          ]}
-          onPress={() =>
-            router.replace("/events/my_events")
-          }
-          accessibilityRole="button"
-          accessibilityState={{
-            selected:
-              activeDashboard === "my_events",
-          }}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeDashboard === "my_events" &&
-                styles.activeTabText,
-            ]}
-          >
-            My Events
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* ----------------------------------------
-          Back to Events
-      ---------------------------------------- */}
-
-      <Pressable
-        style={styles.backButton}
-        onPress={backToEvents}
-        accessibilityRole="button"
-        accessibilityLabel={`Back to ${
-          activeDashboard === "my_events"
-            ? "My Events"
-            : "All Events"
-        }`}
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
       >
-        <Ionicons
-          name="arrow-back"
-          size={22}
-          color="#3F6D3F"
-        />
+        {/* Navigation and Management Controls */}
 
-        <Text style={styles.backText}>
-          Back to Events
-        </Text>
-      </Pressable>
+        <View style={styles.navigation}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace(backPath);
+              }
+            }}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={19}
+              color={GREEN}
+            />
 
-      {/* ----------------------------------------
-          Loading State
-      ---------------------------------------- */}
+            <Text style={styles.backText}>
+              Back to Events
+            </Text>
+          </Pressable>
 
-      {loading && (
-        <View style={styles.centered}>
-          <ActivityIndicator
-            size="large"
-            color="#31988F"
-          />
+          {/* Owner-Only Controls */}
 
-          <Text style={styles.message}>
-            Loading event details...
-          </Text>
+          {!loading && isOwner && (
+            <View style={styles.ownerActions}>
+              {/* Published: Cancel Only */}
+
+              {isPublished && (
+                <Pressable
+                  style={styles.cancelEvent}
+                  disabled={!!managing}
+                  onPress={() =>
+                    void handleManagement("cancel")
+                  }
+                >
+                  <Text style={styles.cancelEventText}>
+                    {managing === "cancel"
+                      ? "Canceling..."
+                      : "Cancel Event"}
+                  </Text>
+                </Pressable>
+              )}
+
+              {/* Draft: Edit, Publish, Delete */}
+
+              {isDrafted && (
+                <>
+                  <Pressable
+                    style={styles.editEvent}
+                    disabled={!!managing}
+                    onPress={editEvent}
+                  >
+                    <Text style={styles.editText}>
+                      Edit
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.publishEvent}
+                    disabled={!!managing}
+                    onPress={() =>
+                      void handleManagement("publish")
+                    }
+                  >
+                    <Text style={styles.publishText}>
+                      {managing === "publish"
+                        ? "Publishing..."
+                        : "Publish"}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.deleteEvent}
+                    disabled={!!managing}
+                    onPress={() => {
+                      setManagementError("");
+                      setConfirmDelete(true);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Delete event"
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={20}
+                      color="#B42318"
+                    />
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )}
         </View>
-      )}
 
-      {/* ----------------------------------------
-          Error State
-      ---------------------------------------- */}
+        {!!managementError && !confirmDelete && (
+          <Text style={styles.error}>
+            {managementError}
+          </Text>
+        )}
 
-      {!loading && !!error && (
-        <View style={styles.centered}>
+        {/* Loading / Error */}
+
+        {loading && (
+          <ActivityIndicator
+            color={GREEN}
+            size="large"
+            style={{ marginTop: 48 }}
+          />
+        )}
+
+        {!loading && !!error && (
           <Text style={styles.error}>
             {error}
           </Text>
-        </View>
-      )}
+        )}
 
-      {/* ----------------------------------------
-          Event Not Found
-      ---------------------------------------- */}
-
-      {!loading && !error && !event && (
-        <View style={styles.centered}>
-          <Text style={styles.title}>
-            Event Not Found
-          </Text>
-
+        {!loading && !error && !event && (
           <Text style={styles.message}>
-            This event may no longer exist or
-            may not be available to you.
+            Event not found.
           </Text>
-        </View>
-      )}
+        )}
 
-      {/* ----------------------------------------
-          Event Details
-      ---------------------------------------- */}
+        {/* Event Details */}
 
-      {!loading && !error && event && (
-        <>
-          {/* Event Image */}
+        {!loading && !error && event && (
+          <>
+            {/* Event Image */}
 
-          <View style={styles.hero}>
-            {event.eventImageURL?.startsWith(
-              "https://"
-            ) ? (
-              <Image
-                source={{ uri: event.eventImageURL }}
-                style={[styles.heroImage, { resizeMode: "cover" }]}
-              />
-            ) : (
-              <View
-                style={styles.imagePlaceholder}
-              >
+            <View style={styles.hero}>
+              {event.eventImageURL ? (
+                <Image
+                  source={{
+                    uri: event.eventImageURL,
+                  }}
+                  style={styles.heroImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.placeholder}>
+                  <Text
+                    style={styles.placeholderText}
+                  >
+                    GO OUTSIDE
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Category / Title / Host */}
+
+            <Text style={styles.category}>
+              {categoryName}
+            </Text>
+
+            <Text style={styles.title}>
+              {event.eventTitle ||
+                "Untitled Event"}
+            </Text>
+
+            <Text style={styles.host}>
+              Hosted by:{" "}
+              <Text style={styles.hostName}>
+                {hostName}
+              </Text>
+            </Text>
+
+            {/* Event Badges */}
+
+            <View style={styles.badges}>
+              {event.isFeatured && (
                 <Text
-                  style={styles.placeholderText}
-                >
-                  GO OUTSIDE
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* ----------------------------------------
-              Category
-          ---------------------------------------- */}
-
-          <Text style={styles.category}>
-            {categoryName}
-          </Text>
-
-          {/* ----------------------------------------
-              Event Title
-          ---------------------------------------- */}
-
-          <Text style={styles.title}>
-            {event.eventTitle ||
-              "Untitled Event"}
-          </Text>
-
-          {/* ----------------------------------------
-              Event Badges
-          ---------------------------------------- */}
-
-          <View style={styles.badges}>
-            {event.isFeatured && (
-              <View style={styles.featuredBadge}>
-                <Text
-                  style={styles.featuredText}
+                  style={styles.featuredBadge}
                 >
                   Featured Event
                 </Text>
-              </View>
-            )}
+              )}
 
-            {event.status === "drafted" && (
-              <View style={styles.draftBadge}>
-                <Text style={styles.draftText}>
+              {isDrafted && (
+                <Text
+                  style={styles.draftBadge}
+                >
                   Draft
                 </Text>
-              </View>
-            )}
+              )}
+            </View>
 
-            {event.status === "cancelled" && (
-              <View style={styles.draftBadge}>
-                <Text style={styles.draftText}>
-                  Cancelled
+            {/* RSVP Left / Cost Right */}
+
+            <View style={styles.costActions}>
+              {canRSVP && (
+                <Pressable
+                  style={[
+                    styles.rsvpButton,
+                    going && styles.goingButton,
+                  ]}
+                  disabled={
+                    rsvpLoading || rsvpSaving
+                  }
+                  onPress={() =>
+                    void handleRSVP()
+                  }
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: going,
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.rsvpText,
+                      going && styles.goingText,
+                    ]}
+                  >
+                    {rsvpLoading || rsvpSaving
+                      ? "..."
+                      : going
+                        ? "Going"
+                        : "RSVP"}
+                  </Text>
+                </Pressable>
+              )}
+
+              <View style={styles.priceBox}>
+                <Text style={styles.label}>
+                  Event Cost
+                </Text>
+
+                <Text style={styles.price}>
+                  {formatEventCost(
+                    event.eventCost
+                  )}
                 </Text>
               </View>
+            </View>
+
+            {!!rsvpError && (
+              <Text style={styles.error}>
+                {rsvpError}
+              </Text>
             )}
-          </View>
 
-          {/* ----------------------------------------
-              Event Cost
-          ---------------------------------------- */}
+            {/* Event Description */}
 
-          <View style={styles.priceBox}>
-            <Text style={styles.label}>
-              Event Cost
-            </Text>
+            <View style={styles.panel}>
+              <Text style={styles.sectionTitle}>
+                About This Event
+              </Text>
 
-            <Text style={styles.price}>
-              {formatEventCost(event.eventCost)}
-            </Text>
-          </View>
-
-          {/* ----------------------------------------
-              Ownership Information
-          ---------------------------------------- */}
-
-          {isOwner && (
-            <View style={styles.ownerNotice}>
-              <Ionicons
-                name="person-circle-outline"
-                size={19}
-                color="#3F6D3F"
-              />
-
-              <Text style={styles.ownerText}>
-                You're the organizer of this event.
+              <Text style={styles.description}>
+                {event.eventDescription ||
+                  "No description has been provided for this event."}
               </Text>
             </View>
-          )}
 
-          {/* ----------------------------------------
-              Event Description
-          ---------------------------------------- */}
+            {/* Event Information */}
 
-          <View style={styles.panel}>
-            <Text style={styles.sectionTitle}>
-              About This Event
+            <View style={styles.panel}>
+              <Text style={styles.sectionTitle}>
+                Event Information
+              </Text>
+
+              <InfoRow
+                icon="calendar-outline"
+                label="Start Date & Time"
+                value={formatEventDate(
+                  event.eventStartTime
+                )}
+              />
+
+              <InfoRow
+                icon="time-outline"
+                label="End Date & Time"
+                value={formatEventDate(
+                  event.eventEndTime
+                )}
+              />
+
+              <InfoRow
+                icon="location-outline"
+                label="Location"
+                value={
+                  event.eventLocation ||
+                  "Location TBD"
+                }
+              />
+
+              <InfoRow
+                icon="pricetag-outline"
+                label="Category"
+                value={categoryName}
+                isLast
+              />
+            </View>
+          </>
+        )}
+      </ScrollView>
+
+      {/* ----------------------------------------
+          Delete Confirmation Modal
+      ---------------------------------------- */}
+
+      <Modal
+        visible={confirmDelete}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!managingRef.current) {
+            setConfirmDelete(false);
+          }
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.deleteIcon}>
+              <Ionicons
+                name="trash-outline"
+                size={28}
+                color="#B42318"
+              />
+            </View>
+
+            <Text style={styles.modalTitle}>
+              Delete Event?
             </Text>
 
-            <Text style={styles.description}>
-              {event.eventDescription ||
-                "No description has been provided for this event."}
+            <Text style={styles.modalDescription}>
+              Are you sure you want to
+              permanently delete{" "}
+              <Text style={{ fontWeight: "700" }}>
+                "{event?.eventTitle ||
+                  "Untitled Event"}"
+              </Text>
+              ?
             </Text>
+
+            <Text style={styles.warning}>
+              This action cannot be undone.
+            </Text>
+
+            {!!managementError && (
+              <Text style={styles.error}>
+                {managementError}
+              </Text>
+            )}
+
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={styles.keepButton}
+                disabled={!!managing}
+                onPress={() =>
+                  setConfirmDelete(false)
+                }
+              >
+                <Text style={styles.keepText}>
+                  Keep Event
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.confirmButton}
+                disabled={!!managing}
+                onPress={() =>
+                  void handleManagement("delete")
+                }
+              >
+                <Text style={styles.confirmText}>
+                  {managing === "delete"
+                    ? "Deleting..."
+                    : "Delete Event"}
+                </Text>
+              </Pressable>
+            </View>
           </View>
-
-          {/* ----------------------------------------
-              Event Information
-          ---------------------------------------- */}
-
-          <View style={styles.panel}>
-            <Text style={styles.sectionTitle}>
-              Event Information
-            </Text>
-
-            {/* Start Date */}
-
-            <InfoRow
-              icon="calendar-outline"
-              label="Start Date & Time"
-              value={formatEventDate(
-                event.eventStartTime
-              )}
-            />
-
-            {/* End Date */}
-
-            <InfoRow
-              icon="time-outline"
-              label="End Date & Time"
-              value={formatEventDate(
-                event.eventEndTime
-              )}
-            />
-
-            {/* Location */}
-
-            <InfoRow
-              icon="location-outline"
-              label="Location"
-              value={
-                event.eventLocation ||
-                "Location TBD"
-              }
-            />
-
-            {/* Category */}
-
-            <InfoRow
-              icon="pricetag-outline"
-              label="Category"
-              value={categoryName}
-            />
-
-            {/* Cost */}
-
-            <InfoRow
-              icon="cash-outline"
-              label="Cost"
-              value={formatEventCost(
-                event.eventCost
-              )}
-              isLast
-            />
-          </View>
-
-          {/* ----------------------------------------
-              Past Event Message
-          ---------------------------------------- */}
-
-          {!isUpcoming && isPublished && (
-            <Text style={styles.statusText}>
-              This event has already started.
-            </Text>
-          )}
-        </>
-      )}
-    </ScrollView>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 // --------------------------------------------------
-// Reusable Information Row
+// Reusable Event Information Row
 // --------------------------------------------------
 
 type InfoIcon =
@@ -614,10 +888,10 @@ function InfoRow({
         name={icon}
         size={21}
         color="#31988F"
-        style={styles.infoIcon}
+        style={{ marginRight: 14 }}
       />
 
-      <View style={styles.infoContent}>
+      <View style={{ flex: 1 }}>
         <Text style={styles.label}>
           {label}
         </Text>
@@ -635,304 +909,319 @@ function InfoRow({
 // --------------------------------------------------
 
 const styles = StyleSheet.create({
-  // --------------------------------------------------
-  // Screen Layout
-  // --------------------------------------------------
-
   screen: {
     flex: 1,
     backgroundColor: "#F6F7F3",
   },
-
   content: {
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 70,
   },
-
-  // --------------------------------------------------
-  // Events Dashboard Navigation
-  // --------------------------------------------------
-
-  tabs: {
+  navigation: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "stretch",
-    height: 52,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E1E6EA",
-    marginBottom: 24,
-    gap: 26,
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 22,
   },
-
-  tab: {
-    height: "100%",
-    justifyContent: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
-  },
-
-  activeTab: {
-    borderBottomColor: "#31988F",
-  },
-
-  tabText: {
-    color: "#53617A",
-    fontSize: 14,
-    fontWeight: "400",
-  },
-
-  activeTabText: {
-    color: "#31988F",
-    fontWeight: "700",
-  },
-
-  // --------------------------------------------------
-  // Back Button
-  // --------------------------------------------------
-
   backButton: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 8,
+    gap: 6,
     paddingVertical: 10,
-    marginBottom: 12,
   },
-
   backText: {
-    color: "#3F6D3F",
-    fontSize: 15,
+    color: GREEN,
+    fontSize: 14,
     fontWeight: "700",
   },
-
-  // --------------------------------------------------
-  // Loading and Error States
-  // --------------------------------------------------
-
-  centered: {
-    paddingVertical: 70,
+  ownerActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
+    gap: 8,
   },
-
-  message: {
-    fontSize: 15,
-    color: "#63715F",
-    textAlign: "center",
-    lineHeight: 23,
+  cancelEvent: {
+    backgroundColor: "#FFF5E6",
+    borderWidth: 1,
+    borderColor: "#E4B86A",
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 10,
   },
-
-  error: {
-    color: "#B42318",
-    fontSize: 15,
-    textAlign: "center",
+  cancelEventText: {
+    color: "#945D15",
+    fontSize: 13,
+    fontWeight: "700",
   },
-
-  // --------------------------------------------------
-  // Event Image
-  // --------------------------------------------------
-
+  editEvent: {
+    backgroundColor: "#E5EADF",
+    borderWidth: 1,
+    borderColor: "#B8C9B2",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  editText: {
+    color: "#2F5B35",
+    fontWeight: "700",
+  },
+  publishEvent: {
+    backgroundColor: GREEN,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  publishText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  deleteEvent: {
+    backgroundColor: "#FFF0EE",
+    borderWidth: 1,
+    borderColor: "#E5B1AA",
+    borderRadius: 10,
+    padding: 10,
+  },
   hero: {
     width: "100%",
     aspectRatio: 16 / 9,
-    backgroundColor: "#DFEDEA",
     borderRadius: 16,
     overflow: "hidden",
+    backgroundColor: "#DFEDEA",
   },
-
   heroImage: {
     width: "100%",
     height: "100%",
   },
-
-  imagePlaceholder: {
+  placeholder: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-
   placeholderText: {
     color: "#31988F",
     fontSize: 24,
     fontWeight: "800",
     letterSpacing: 3,
   },
-
-  // --------------------------------------------------
-  // Event Title and Category
-  // --------------------------------------------------
-
   category: {
     marginTop: 24,
     marginBottom: 8,
+    color: "#3F6D3F",
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 1,
     textTransform: "uppercase",
-    color: "#3F6D3F",
   },
-
   title: {
-    color: "#1F2E22",
+    color: INK,
     fontSize: 30,
     fontWeight: "800",
     lineHeight: 38,
   },
-
-  // --------------------------------------------------
-  // Event Badges
-  // --------------------------------------------------
-
+  host: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#63715F",
+  },
+  hostName: {
+    color: INK,
+    fontWeight: "700",
+  },
   badges: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
     marginTop: 14,
-    marginBottom: 22,
-  },
-
-  featuredBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 7,
-    backgroundColor: "#D7EFEB",
-  },
-
-  featuredText: {
-    color: "#207E75",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  draftBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 7,
-    backgroundColor: "#E8E9E6",
-  },
-
-  draftText: {
-    color: "#5B645A",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  // --------------------------------------------------
-  // Event Cost
-  // --------------------------------------------------
-
-  priceBox: {
-    marginTop: 16,
     marginBottom: 20,
-    padding: 20,
-    borderRadius: 16,
+  },
+  featuredBadge: {
+    backgroundColor: "#D7EFEB",
+    color: "#207E75",
+    borderRadius: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    overflow: "hidden",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  draftBadge: {
+    backgroundColor: "#E8E9E6",
+    color: "#5B645A",
+    borderRadius: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    overflow: "hidden",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  costActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 20,
+  },
+  rsvpButton: {
+    flex: 1,
+    minHeight: 54,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: GREEN,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  goingButton: {
+    backgroundColor: GREEN,
+  },
+  rsvpText: {
+    color: GREEN,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  goingText: {
+    color: "#FFFFFF",
+  },
+  priceBox: {
+    flex: 1,
+    minWidth: 120,
+    padding: 17,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E0E6DD",
-    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
   },
-
   label: {
     color: "#63715F",
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-
   price: {
     marginTop: 6,
     color: "#3F6D3F",
-    fontSize: 25,
+    fontSize: 24,
     fontWeight: "800",
   },
-
-  // --------------------------------------------------
-  // Ownership Notice
-  // --------------------------------------------------
-
-  ownerNotice: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-    marginBottom: 20,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: "#EAF3E6",
-  },
-
-  ownerText: {
-    flex: 1,
-    color: "#3F6D3F",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  // --------------------------------------------------
-  // Content Panels
-  // --------------------------------------------------
-
   panel: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#E0E6DD",
-    borderWidth: 1,
-    borderRadius: 16,
     padding: 22,
     marginBottom: 18,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E0E6DD",
+    borderRadius: 16,
   },
-
   sectionTitle: {
+    color: INK,
     fontSize: 21,
     fontWeight: "800",
-    color: "#1F2E22",
-    marginBottom: 20,
+    marginBottom: 18,
   },
-
   description: {
     color: "#435044",
     fontSize: 15,
     lineHeight: 25,
   },
-
-  // --------------------------------------------------
-  // Event Information Rows
-  // --------------------------------------------------
-
   infoRow: {
     flexDirection: "row",
-    paddingVertical: 16,
-    borderBottomColor: "#EDF0EA",
+    paddingVertical: 15,
     borderBottomWidth: 1,
+    borderBottomColor: "#EDF0EA",
   },
-
   lastInfoRow: {
     borderBottomWidth: 0,
   },
-
-  infoIcon: {
-    marginRight: 14,
-    marginTop: 3,
-  },
-
-  infoContent: {
-    flex: 1,
-    gap: 5,
-  },
-
   infoValue: {
-    color: "#1F2E22",
+    color: INK,
     fontSize: 15,
     fontWeight: "600",
     lineHeight: 22,
+    marginTop: 5,
   },
-
-  // --------------------------------------------------
-  // Event Status
-  // --------------------------------------------------
-
-  statusText: {
-    color: "#63715F",
+  error: {
+    color: "#B42318",
     fontSize: 14,
+    marginVertical: 12,
+  },
+  message: {
+    color: "#63715F",
     textAlign: "center",
-    marginTop: 8,
+    paddingVertical: 40,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(20,35,24,0.58)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 440,
+    padding: 28,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#E0E6DC",
+    alignItems: "center",
+  },
+  deleteIcon: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: "#FFF0EE",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
+  modalTitle: {
+    color: INK,
+    fontSize: 26,
+    fontWeight: "800",
+    marginBottom: 12,
+  },
+  modalDescription: {
+    color: "#63715F",
+    fontSize: 15,
+    lineHeight: 24,
+    textAlign: "center",
+  },
+  warning: {
+    color: "#B42318",
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 12,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+    marginTop: 26,
+  },
+  keepButton: {
+    flex: 1,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: "#DCE4D8",
+    borderRadius: 10,
+    backgroundColor: "#F4F6F1",
+    alignItems: "center",
+  },
+  keepText: {
+    color: "#38573A",
+    fontWeight: "700",
+  },
+  confirmButton: {
+    flex: 1,
+    padding: 13,
+    borderRadius: 10,
+    backgroundColor: "#B42318",
+    alignItems: "center",
+  },
+  confirmText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
 });

@@ -28,12 +28,40 @@
   margin-bottom: 24px;
 }
 
+
+/* --------------------------------------------------
+   Back to Events Button
+-------------------------------------------------- */
+
 .backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 0;
+
+  background: transparent;
+  border: none;
+
   color: #3f6d3f;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
+
+  cursor: pointer;
 }
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.backLink:focus-visible {
+  outline: 2px solid #3f6d3f;
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+
 
 .backLink:hover {
   text-decoration: underline;
@@ -325,5 +353,482 @@
 
   .imagePlaceholder {
     font-size: 18px;
+  }
+}
+
+/* --------------------------------------------------
+   Event Cost and RSVP Layout
+-------------------------------------------------- */
+
+.header .eventActions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 16px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* RSVP Container - Left */
+
+.header .rsvpContainer {
+  width: 160px;
+  flex: 0 0 160px;
+}
+
+/* Event Cost Card - Right */
+
+.header .eventActions .priceBox {
+  width: 230px;
+  flex: 0 0 230px;
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------
+   Event Details RSVP Button
+-------------------------------------------------- */
+
+.rsvpButton,
+.goingButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  min-height: 54px;
+  padding: 11px 24px;
+
+  border-radius: 10px;
+
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* RSVP */
+
+.rsvpButton {
+  background: #ffffff;
+  border: 1px solid #3f6d3f;
+  color: #3f6d3f;
+}
+
+.rsvpButton:hover:not(:disabled) {
+  background: #e5eadf;
+}
+
+/* Going */
+
+.goingButton {
+  background: #4c7a45;
+  border: 1px solid #4c7a45;
+  color: #ffffff;
+}
+
+.goingButton:hover:not(:disabled) {
+  background: #3f6d3f;
+}
+
+/* Disabled RSVP Buttons */
+
+.rsvpButton:disabled,
+.goingButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* RSVP Error */
+
+.rsvpError {
+  margin: 8px 0 0;
+  color: #b42318;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------
+   Navigation Layout
+-------------------------------------------------- */
+
+.navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* --------------------------------------------------
+   Owner Event Management Actions
+-------------------------------------------------- */
+
+.ownerActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Shared Owner Button Styling */
+
+.editEventButton,
+.cancelEventButton,
+.publishEventButton,
+.deleteEventButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 40px;
+  padding: 9px 16px;
+
+  border-radius: 10px;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* Edit Event */
+
+.editEventButton {
+  background: #e5eadf;
+  border: 1px solid #b8c9b2;
+  color: #2f5b35;
+}
+
+.editEventButton:hover {
+  background: #d6e2d0;
+}
+
+/* Cancel Event */
+
+.cancelEventButton {
+  background: #fff5e6;
+  border: 1px solid #e4b86a;
+  color: #945d15;
+}
+
+.cancelEventButton:hover:not(:disabled) {
+  background: #ffebcc;
+}
+
+/* Publish Event */
+
+.publishEventButton {
+  background: #4c7a45;
+  border: 1px solid #4c7a45;
+  color: #ffffff;
+}
+
+.publishEventButton:hover:not(:disabled) {
+  background: #3f6d3f;
+}
+
+/* Delete Event */
+
+.deleteEventButton {
+  width: 42px;
+  padding: 9px;
+
+  background: #fff0ee;
+  border: 1px solid #e5b1aa;
+  color: #b42318;
+}
+
+.deleteEventButton:hover:not(:disabled) {
+  background: #fbdad6;
+}
+
+/* Disabled Owner Actions */
+
+.ownerActions button:disabled,
+.editEventButton[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------
+   Event Management Error
+-------------------------------------------------- */
+
+.managementError {
+  margin: 12px 0;
+  padding: 12px 16px;
+
+  background: #fff0ee;
+  border: 1px solid #e5b1aa;
+  border-radius: 10px;
+
+  color: #b42318;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------
+   Responsive Layout
+-------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .header .eventActions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .header .rsvpContainer {
+    flex: 1 1 140px;
+    width: auto;
+  }
+
+  .header .eventActions .priceBox {
+    flex: 1 1 180px;
+    width: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .navigation {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ownerActions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
+
+
+/* --------------------------------------------------
+   Delete Confirmation Modal Overlay
+-------------------------------------------------- */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(20, 35, 24, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+/* --------------------------------------------------
+   Confirmation Modal
+-------------------------------------------------- */
+
+.confirmModal {
+  width: 100%;
+  max-width: 440px;
+  box-sizing: border-box;
+
+  padding: 34px 30px;
+
+  background: #ffffff;
+  border: 1px solid #e0e6dc;
+  border-radius: 22px;
+
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+
+  text-align: center;
+
+  animation: modalAppear 0.2s ease-out;
+}
+
+/* --------------------------------------------------
+   Delete Icon
+-------------------------------------------------- */
+
+.deleteIconContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 66px;
+  height: 66px;
+
+  margin: 0 auto 20px;
+
+  background: #fff0ee;
+  color: #b42318;
+
+  border-radius: 50%;
+}
+
+/* --------------------------------------------------
+   Modal Text
+-------------------------------------------------- */
+
+.confirmModalTitle {
+  margin: 0 0 12px;
+
+  color: #203124;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.confirmModalDescription {
+  margin: 0;
+
+  color: #63715f;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.confirmModalDescription strong {
+  color: #203124;
+  font-weight: 700;
+}
+
+.deleteWarning {
+  display: block;
+  margin-top: 12px;
+
+  color: #b42318;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------
+   Modal Action Buttons
+-------------------------------------------------- */
+
+.confirmModalActions {
+  display: flex;
+  gap: 12px;
+
+  margin-top: 28px;
+}
+
+/* Keep Event */
+
+.keepEventButton {
+  flex: 1;
+  min-height: 46px;
+
+  padding: 12px 18px;
+
+  background: #f4f6f1;
+  border: 1px solid #dce4d8;
+  border-radius: 10px;
+
+  color: #38573a;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.keepEventButton:hover:not(:disabled) {
+  background: #e5eadf;
+}
+
+/* Delete Event */
+
+.confirmDeleteButton {
+  flex: 1;
+  min-height: 46px;
+
+  padding: 12px 18px;
+
+  background: #b42318;
+  border: 1px solid #b42318;
+  border-radius: 10px;
+
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.confirmDeleteButton:hover:not(:disabled) {
+  background: #912018;
+}
+
+.keepEventButton:disabled,
+.confirmDeleteButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------
+   Modal Error
+-------------------------------------------------- */
+
+.confirmModalError {
+  margin: 16px 0 0;
+  color: #b42318;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------
+   Modal Animation
+-------------------------------------------------- */
+
+@keyframes modalAppear {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* --------------------------------------------------
+   Responsive Modal
+-------------------------------------------------- */
+
+@media (max-width: 480px) {
+  .confirmModal {
+    padding: 28px 20px;
+    border-radius: 18px;
+  }
+
+  .confirmModalTitle {
+    font-size: 23px;
+  }
+
+  .confirmModalActions {
+    flex-direction: column-reverse;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirmModal {
+    animation: none;
   }
 }

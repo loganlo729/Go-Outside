@@ -117,6 +117,42 @@ export async function getEventCategories(): Promise<
   return (data ?? []) as CategoryRecord[];
 }
 
+// --------------------------------------------------
+// Get a Single Event by ID
+// --------------------------------------------------
+
+export async function getEventByID(
+  eventID: string
+): Promise<EventRecord | null> {
+  if (!eventID) {
+    throw new Error(
+      "Missing event ID in the URL."
+    );
+  }
+
+  const { data, error } = await eventClient()
+    .from("Event")
+    .select(fields)
+    .eq("eventID", eventID)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Event lookup failed:", {
+      eventID,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+
+    throw new Error(
+      `Failed to fetch event: ${error.message}`
+    );
+  }
+
+  return data as EventRecord | null;
+}
+
 // ==================================================
 // EVENT CREATION
 // ==================================================
@@ -141,16 +177,22 @@ export interface CreateEventInput {
 // Event Image Configuration
 // --------------------------------------------------
 
-export const EVENT_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
+export const EVENT_IMAGE_MAX_SIZE =
+  5 * 1024 * 1024;
 
 export const EVENT_IMAGE_ACCEPT =
   "image/jpeg,image/png,image/webp";
 
-const EVENT_IMAGE_EXTENSIONS: Record<string, string> = {
+const EVENT_IMAGE_EXTENSIONS: Record<
+  string,
+  string
+> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
 };
+
+const EVENT_IMAGE_BUCKET = "events";
 
 // --------------------------------------------------
 // Validate Selected Image
@@ -174,6 +216,207 @@ export function validateEventImage(
   return null;
 }
 
+// ==================================================
+// EVENT IMAGE STORAGE HELPERS
+// ==================================================
+
+// --------------------------------------------------
+// Upload Event Image
+// --------------------------------------------------
+
+async function uploadEventImage(
+  photo: File,
+  userID: string
+): Promise<{
+  imageURL: string;
+  storagePath: string;
+}> {
+  const client = eventClient();
+
+  // --------------------------------------------------
+  // Validate Image
+  // --------------------------------------------------
+
+  const validationError =
+    validateEventImage(photo);
+
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  // --------------------------------------------------
+  // Generate Unique Storage Path
+  // --------------------------------------------------
+
+  const extension =
+    EVENT_IMAGE_EXTENSIONS[photo.type];
+
+  const fileName =
+    `${crypto.randomUUID()}.${extension}`;
+
+  // Store each user's images in their own folder.
+
+  const storagePath =
+    `${userID}/${fileName}`;
+
+  // --------------------------------------------------
+  // Upload to Supabase Storage
+  // --------------------------------------------------
+
+  const { data, error: uploadError } =
+    await client.storage
+      .from(EVENT_IMAGE_BUCKET)
+      .upload(storagePath, photo, {
+        cacheControl: "3600",
+        contentType: photo.type,
+        upsert: false,
+      });
+
+  if (uploadError) {
+    throw new Error(
+      `Unable to upload event photo: ${uploadError.message}`
+    );
+  }
+
+  // --------------------------------------------------
+  // Get Public Image URL
+  // --------------------------------------------------
+
+  const { data: publicURL } =
+    client.storage
+      .from(EVENT_IMAGE_BUCKET)
+      .getPublicUrl(data.path);
+
+  return {
+    imageURL: publicURL.publicUrl,
+    storagePath: data.path,
+  };
+}
+
+// --------------------------------------------------
+// Get Owned Storage Path from Image URL
+// --------------------------------------------------
+
+function getOwnedEventImagePath(
+  imageURL: string | null,
+  userID: string
+): string | null {
+  if (!imageURL) {
+    return null;
+  }
+
+  try {
+    const client = eventClient();
+
+    // Get the public URL for the storage bucket.
+
+    const { data } =
+      client.storage
+        .from(EVENT_IMAGE_BUCKET)
+        .getPublicUrl("");
+
+    const bucketURL = new URL(data.publicUrl);
+    const imageURLObject = new URL(imageURL);
+
+    // Only recognize URLs from our Supabase project.
+
+    if (
+      imageURLObject.origin !==
+      bucketURL.origin
+    ) {
+      return null;
+    }
+
+    // Normalize the bucket URL path.
+
+    const bucketPrefix =
+      bucketURL.pathname.replace(/\/+$/, "") + "/";
+
+    if (
+      !imageURLObject.pathname.startsWith(
+        bucketPrefix
+      )
+    ) {
+      return null;
+    }
+
+    // Extract the actual storage path.
+
+    const storagePath = decodeURIComponent(
+      imageURLObject.pathname.slice(
+        bucketPrefix.length
+      )
+    );
+
+    // Only allow cleanup inside this user's folder.
+
+    if (
+      !storagePath.startsWith(`${userID}/`)
+    ) {
+      return null;
+    }
+
+    // Reject unexpected path traversal segments.
+
+    if (
+      storagePath
+        .split("/")
+        .some(
+          (segment) =>
+            segment === "." ||
+            segment === ".."
+        )
+    ) {
+      return null;
+    }
+
+    return storagePath;
+  } catch {
+    return null;
+  }
+}
+
+// --------------------------------------------------
+// Remove Image from Supabase Storage
+// --------------------------------------------------
+
+async function removeEventImage(
+  storagePath: string
+): Promise<void> {
+  const client = eventClient();
+
+  const { error } = await client.storage
+    .from(EVENT_IMAGE_BUCKET)
+    .remove([storagePath]);
+
+  if (error) {
+    throw new Error(
+      `Unable to remove event image: ${error.message}`
+    );
+  }
+}
+
+// --------------------------------------------------
+// Safely Clean Up an Image
+// --------------------------------------------------
+
+async function cleanupEventImage(
+  storagePath: string
+): Promise<void> {
+  try {
+    await removeEventImage(storagePath);
+  } catch (cleanupError) {
+    console.error(
+      "Unable to clean up event image:",
+      cleanupError
+    );
+  }
+}
+
+// ==================================================
+// CREATE EVENT
+// ==================================================
+
 // --------------------------------------------------
 // Create Event with Optional Photo
 // --------------------------------------------------
@@ -184,9 +427,9 @@ export async function createEvent(
 ) {
   const client = eventClient();
 
-  // ----------------------------------------
+  // --------------------------------------------------
   // Verify Authenticated User
-  // ----------------------------------------
+  // --------------------------------------------------
 
   const {
     data: { user },
@@ -203,12 +446,13 @@ export async function createEvent(
     );
   }
 
-  // ----------------------------------------
-  // Validate Selected Photo
-  // ----------------------------------------
+  // --------------------------------------------------
+  // Validate Photo
+  // --------------------------------------------------
 
   if (photo) {
-    const validationError = validateEventImage(photo);
+    const validationError =
+      validateEventImage(photo);
 
     if (validationError) {
       throw new Error(validationError);
@@ -218,51 +462,33 @@ export async function createEvent(
   let imageURL: string | null = null;
   let uploadedPath: string | null = null;
 
-  // ----------------------------------------
-  // Upload Photo to Supabase Storage
-  // ----------------------------------------
+  // --------------------------------------------------
+  // Upload Event Photo
+  // --------------------------------------------------
 
   if (photo) {
-    const extension = EVENT_IMAGE_EXTENSIONS[photo.type];
+    const uploaded = await uploadEventImage(
+      photo,
+      user.id
+    );
 
-    const fileName = `${crypto.randomUUID()}.${extension}`;
-
-    // Store each user's images in their own folder.
-
-    const storagePath = `${user.id}/${fileName}`;
-
-    const { data, error: uploadError } =
-      await client.storage
-        .from("events")
-        .upload(storagePath, photo, {
-          cacheControl: "3600",
-          contentType: photo.type,
-          upsert: false,
-        });
-
-    if (uploadError) {
-      throw new Error(
-        `Unable to upload event photo: ${uploadError.message}`
-      );
-    }
-
-    uploadedPath = data.path;
-
-    // Retrieve the uploaded image's public URL.
-
-    const { data: publicURL } = client.storage
-      .from("events")
-      .getPublicUrl(data.path);
-
-    imageURL = publicURL.publicUrl;
+    imageURL = uploaded.imageURL;
+    uploadedPath = uploaded.storagePath;
   }
 
-  // ----------------------------------------
+  // --------------------------------------------------
   // Insert Event into Database
-  // ----------------------------------------
+  // --------------------------------------------------
 
-  const { data: event, error: insertError } =
-    await client
+  let event: {
+    eventID: string;
+  } | null = null;
+
+  try {
+    const {
+      data,
+      error: insertError,
+    } = await client
       .from("Event")
       .insert({
         userID: user.id,
@@ -285,25 +511,18 @@ export async function createEvent(
       .select("eventID")
       .single();
 
-  // ----------------------------------------
-  // Handle Failed Database Insert
-  // ----------------------------------------
+    if (insertError) {
+      throw insertError;
+    }
 
-  if (insertError) {
-    // Remove any uploaded image if the insert fails.
+    event = data;
+  } catch (insertError) {
+    // --------------------------------------------------
+    // Clean Up Uploaded Image on Failure
+    // --------------------------------------------------
 
     if (uploadedPath) {
-      const { error: cleanupError } =
-        await client.storage
-          .from("events")
-          .remove([uploadedPath]);
-
-      if (cleanupError) {
-        console.error(
-          "Unable to clean up unused event image:",
-          cleanupError
-        );
-      }
+      await cleanupEventImage(uploadedPath);
     }
 
     console.error(
@@ -312,15 +531,244 @@ export async function createEvent(
     );
 
     throw new Error(
-      `${insertError.message}${
-        insertError.details
-          ? ` — ${insertError.details}`
-          : ""
-      }`
+      insertError instanceof Error
+        ? insertError.message
+        : "Unable to create event."
     );
   }
 
   return event;
+}
+
+// ==================================================
+// EVENT UPDATING
+// ==================================================
+
+// --------------------------------------------------
+// Update Event Options
+// --------------------------------------------------
+
+export interface UpdateEventOptions {
+  photo?: File | null;
+  removeExistingImage?: boolean;
+}
+
+// --------------------------------------------------
+// Update Existing Draft Event
+// --------------------------------------------------
+
+export async function updateEvent(
+  eventID: string,
+  input: CreateEventInput,
+  options: UpdateEventOptions = {}
+) {
+  const client = eventClient();
+
+  const {
+    photo = null,
+    removeExistingImage = false,
+  } = options;
+
+  // --------------------------------------------------
+  // Validate Event ID
+  // --------------------------------------------------
+
+  if (!eventID) {
+    throw new Error(
+      "Missing event ID."
+    );
+  }
+
+  // --------------------------------------------------
+  // Only Draft Events Can Be Edited
+  // --------------------------------------------------
+
+  if (input.status !== "drafted") {
+    throw new Error(
+      "Only draft events can be edited."
+    );
+  }
+
+  // --------------------------------------------------
+  // Verify Authenticated User
+  // --------------------------------------------------
+
+  const {
+    data: { user },
+    error: authError,
+  } = await client.auth.getUser();
+
+  if (authError) {
+    throw authError;
+  }
+
+  if (!user) {
+    throw new Error(
+      "You must be logged in to edit an event."
+    );
+  }
+
+  // --------------------------------------------------
+  // Verify Ownership and Draft Status
+  // --------------------------------------------------
+
+  const {
+    data: existingEvent,
+    error: fetchError,
+  } = await client
+    .from("Event")
+    .select(
+      "eventID,userID,status,eventImageURL"
+    )
+    .eq("eventID", eventID)
+    .eq("userID", user.id)
+    .eq("status", "drafted")
+    .maybeSingle();
+
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  if (!existingEvent) {
+    throw new Error(
+      "Draft not found, or you do not have permission to edit it."
+    );
+  }
+
+  // --------------------------------------------------
+  // Validate Replacement Photo
+  // --------------------------------------------------
+
+  if (photo) {
+    const validationError =
+      validateEventImage(photo);
+
+    if (validationError) {
+      throw new Error(validationError);
+    }
+  }
+
+  // --------------------------------------------------
+  // Get Existing Image
+  // --------------------------------------------------
+
+  const oldImageURL: string | null =
+    existingEvent.eventImageURL ?? null;
+
+  let newImageURL: string | null =
+    oldImageURL;
+
+  let uploadedPath: string | null = null;
+
+  // --------------------------------------------------
+  // Upload Replacement Image
+  // --------------------------------------------------
+
+  if (photo) {
+    const uploaded = await uploadEventImage(
+      photo,
+      user.id
+    );
+
+    newImageURL = uploaded.imageURL;
+    uploadedPath = uploaded.storagePath;
+  } else if (removeExistingImage) {
+    // Clear the existing image reference.
+
+    newImageURL = null;
+  }
+
+  // --------------------------------------------------
+  // Update Existing Event Record
+  // --------------------------------------------------
+
+  let updatedEvent: {
+    eventID: string;
+  } | null = null;
+
+  try {
+    const {
+      data,
+      error: updateError,
+    } = await client
+      .from("Event")
+      .update({
+        eventTitle: input.eventTitle,
+        categoryID: input.categoryID,
+        eventDescription: input.eventDescription,
+
+        eventStartTime: input.eventStartTime,
+        eventEndTime: input.eventEndTime,
+
+        eventLocation: input.eventLocation,
+        eventCost: input.eventCost,
+
+        isFeatured: input.isFeatured,
+
+        // Preserve drafted status.
+        status: "drafted",
+
+        // Keep, replace, or remove the photo.
+        eventImageURL: newImageURL,
+      })
+      .eq("eventID", eventID)
+      .eq("userID", user.id)
+      .eq("status", "drafted")
+      .select("eventID")
+      .maybeSingle();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    if (!data) {
+      throw new Error(
+        "Unable to update this draft. It may have changed or you may not have permission."
+      );
+    }
+
+    updatedEvent = data;
+  } catch (updateError) {
+    // --------------------------------------------------
+    // Clean Up Newly Uploaded Photo on Failure
+    // --------------------------------------------------
+
+    if (uploadedPath) {
+      await cleanupEventImage(uploadedPath);
+    }
+
+    throw updateError;
+  }
+
+  // --------------------------------------------------
+  // Remove Old Photo After Successful Update
+  // --------------------------------------------------
+
+  const imageChanged =
+    oldImageURL !== newImageURL;
+
+  if (imageChanged && oldImageURL) {
+    const oldStoragePath =
+      getOwnedEventImagePath(
+        oldImageURL,
+        user.id
+      );
+
+    if (oldStoragePath) {
+      // The database update has already succeeded.
+      // Storage cleanup failures should not undo it.
+
+      await cleanupEventImage(
+        oldStoragePath
+      );
+    }
+  }
+
+  // --------------------------------------------------
+  // Return Updated Event
+  // --------------------------------------------------
+
+  return updatedEvent;
 }
 
 // ==================================================
@@ -331,15 +779,13 @@ export async function createEvent(
 // RSVP Change Notifications
 // --------------------------------------------------
 
-// An event may appear in multiple sections.
-//
-// For example:
+// Events can appear in multiple places:
 // - Featured Events
 // - Upcoming Events
-// - Your Active Events
+// - My Events
 //
-// These listeners synchronize RSVP changes across
-// mounted components within the same browser session.
+// These listeners synchronize RSVP changes
+// across mounted components in the same browser.
 
 type RSVPListener = (
   eventID: string,
@@ -358,15 +804,13 @@ export function subscribeToRSVPChanges(
 ): () => void {
   rsvpListeners.add(listener);
 
-  // Return an unsubscribe function for useEffect.
-
   return () => {
     rsvpListeners.delete(listener);
   };
 }
 
 // --------------------------------------------------
-// Notify Subscribers
+// Notify RSVP Subscribers
 // --------------------------------------------------
 
 function notifyRSVPChange(
@@ -398,8 +842,6 @@ export async function getEventRSVP(
     throw error;
   }
 
-  // Return true only if the user is attending.
-
   return data?.rsvpStatus === "going";
 }
 
@@ -412,11 +854,14 @@ export async function getMyUpcomingRSVPEvents(
 ): Promise<EventRecord[]> {
   const client = eventClient();
 
-  // ----------------------------------------
-  // Fetch the User's Active RSVP Records
-  // ----------------------------------------
+  // --------------------------------------------------
+  // Fetch Active RSVP Records
+  // --------------------------------------------------
 
-  const { data: rsvps, error: rsvpError } = await client
+  const {
+    data: rsvps,
+    error: rsvpError,
+  } = await client
     .from("RSVP")
     .select("eventID")
     .eq("userID", userID)
@@ -426,28 +871,26 @@ export async function getMyUpcomingRSVPEvents(
     throw rsvpError;
   }
 
-  // ----------------------------------------
+  // --------------------------------------------------
   // Collect Unique Event IDs
-  // ----------------------------------------
+  // --------------------------------------------------
 
   const eventIDs = [
     ...new Set(
       (rsvps ?? []).map(
-        (rsvp: { eventID: string }) => rsvp.eventID
+        (rsvp: { eventID: string }) =>
+          rsvp.eventID
       )
     ),
   ];
-
-
-  // No active RSVPs means no upcoming events.
 
   if (eventIDs.length === 0) {
     return [];
   }
 
-  // ----------------------------------------
-  // Fetch Matching Upcoming Published Events
-  // ----------------------------------------
+  // --------------------------------------------------
+  // Fetch Upcoming Published Events
+  // --------------------------------------------------
 
   const { data, error } = await client
     .from("Event")
@@ -494,7 +937,7 @@ export async function addEventRSVP(
     throw error;
   }
 
-  // Update other cards and pages after success.
+  // Notify other event cards and pages.
 
   notifyRSVPChange(
     eventID,
@@ -511,8 +954,6 @@ export async function removeEventRSVP(
   eventID: string,
   userID: string
 ): Promise<void> {
-  // Delete only the RSVP record matching this
-  // authenticated user and event.
   const { data, error } = await eventClient()
     .from("RSVP")
     .delete()
@@ -524,14 +965,15 @@ export async function removeEventRSVP(
     throw error;
   }
 
-  // Verify a record was actually deleted.
+  // Verify a record was deleted.
+
   if (!data || data.length === 0) {
     throw new Error(
       "RSVP could not be deleted. Check database permissions."
     );
   }
 
-  // Update other cards and pages after success.
+  // Notify other event cards and pages.
 
   notifyRSVPChange(
     eventID,
@@ -539,42 +981,3 @@ export async function removeEventRSVP(
     false
   );
 }
-
-
-
-
-// --------------------------------------------------
-// Get a Single Event by ID
-// --------------------------------------------------
-
-
-export async function getEventByID(
-  eventID: string
-): Promise<EventRecord | null> {
-  if (!eventID) {
-    throw new Error("Missing event ID in the URL.");
-  }
-
-  const { data, error } = await eventClient()
-    .from("Event")
-    .select(fields)
-    .eq("eventID", eventID)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Event lookup failed:", {
-      eventID,
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-    });
-
-    throw new Error(
-      `Failed to fetch event: ${error.message}`
-    );
-  }
-
-  return data as EventRecord | null;
-}
-
