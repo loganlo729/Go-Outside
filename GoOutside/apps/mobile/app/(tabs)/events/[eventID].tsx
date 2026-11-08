@@ -524,6 +524,7 @@ export default function EventDetailsScreen() {
                   </Text>
                 </Pressable>
               )}
+              
 
               {/* Draft: Edit, Publish, Delete */}
 
