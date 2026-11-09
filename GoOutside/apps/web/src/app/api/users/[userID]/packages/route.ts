@@ -1,0 +1,3 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db, identity, jsonError, validUUID, failSafe, Ctx } from '../../../../../lib/api-server';
+export async function GET(req:NextRequest,ctx:Ctx<'userID'>){return failSafe(async()=>{const {userID}=await ctx.params;const me=await identity(req);if(!me)return jsonError('Unauthorized',401);if(me!==userID)return jsonError('Forbidden',403);if(!validUUID(userID))return jsonError('Invalid user ID');const {data,error}=await (await db()).from('UserPackage').select('*').eq('userID',userID).order('startDate',{ascending:false});return error?jsonError(error.message,500):NextResponse.json(data??[]);});}
