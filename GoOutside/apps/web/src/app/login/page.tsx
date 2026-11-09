@@ -1,3 +1,4 @@
+
 "use client";
 
 import { FormEvent, useState } from "react";
@@ -12,6 +13,9 @@ export default function LoginPage() {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const supabase = getSupabaseClient();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -19,21 +23,61 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const supabase = getSupabaseClient();
+    try {
+      const { error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+      if (signInError) {
+        throw signInError;
+      }
 
-    if (error) {
-      setError(error.message);
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to log in. Please try again."
+      );
+    } finally {
       setLoading(false);
-      return;
     }
+  }
 
-    router.push("/");
-    router.refresh();
+  async function handleGoogleLogin() {
+    if (googleLoading) return;
+
+    setGoogleLoading(true);
+    setError("");
+
+    try {
+      const { data, error: oauthError } =
+        await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback?next=/`,
+          },
+        });
+
+      if (oauthError) throw oauthError;
+
+      if (!data.url) {
+        throw new Error(
+          "Google authentication URL was not returned."
+        );
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to log in with Google."
+      );
+    } finally {
+      setGoogleLoading(false);
+    }
   }
 
   return (
@@ -74,7 +118,6 @@ export default function LoginPage() {
             />
           </label>
 
-
           {error && (
             <p className="auth-error" role="alert">
               {error}
@@ -84,29 +127,43 @@ export default function LoginPage() {
           <button
             type="submit"
             className="button button-primary"
-            disabled={loading}
+            disabled={loading || googleLoading}
           >
             {loading ? "Logging in..." : "Log in"}
           </button>
 
+          <div className="auth-divider">
+            <span>or</span>
+          </div>
+
           <button
-            type="button" 
+            type="button"
             className="button button-secondary"
-            disabled={loading}
+            onClick={handleGoogleLogin}
+            disabled={googleLoading || loading}
+          >
+            {googleLoading
+              ? "Connecting to Google..."
+              : "Continue with Google"}
+          </button>
+
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={loading || googleLoading}
             onClick={() => router.push("/account_creation")}
           >
             Create Account
           </button>
 
           <button
-            type="button" 
+            type="button"
             className="button button-tetriary"
-            disabled={loading} 
+            disabled={loading || googleLoading}
             onClick={() => router.push("/forgot_password")}
           >
             Forgot Password?
           </button>
-
         </form>
       </div>
     </div>
