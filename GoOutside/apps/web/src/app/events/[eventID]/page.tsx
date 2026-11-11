@@ -148,6 +148,10 @@ export default function EventDetailsPage() {
     new Date(event.eventStartTime).getTime() >
       Date.now();
 
+  const isEventOver =
+    !!event?.eventEndTime &&
+    new Date(event.eventEndTime).getTime() <= Date.now();
+
   const canRSVP = isPublished && isUpcoming;
 
   // --------------------------------------------------
@@ -894,7 +898,7 @@ export default function EventDetailsPage() {
                     Published Event: Cancel Only
                 ---------------------------------------- */}
   
-                {isPublished && (
+                {isPublished && !isEventOver && (
                   <button
                     type="button"
                     className={styles.cancelEventButton}

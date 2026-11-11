@@ -147,6 +147,10 @@ export default function EventDetailsScreen() {
     new Date(event.eventStartTime).getTime() >
       Date.now();
 
+  const isEventOver =
+    !!event?.eventEndTime &&
+    new Date(event.eventEndTime).getTime() <= Date.now();
+
   const canRSVP = isPublished && isUpcoming;
 
   const isOwner =
@@ -509,7 +513,7 @@ export default function EventDetailsScreen() {
             <View style={styles.ownerActions}>
               {/* Published: Cancel Only */}
 
-              {isPublished && (
+              {isPublished && !isEventOver && (
                 <Pressable
                   style={styles.cancelEvent}
                   disabled={!!managing}
