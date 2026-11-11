@@ -15,7 +15,6 @@ export default function CompleteProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-
   useEffect(() => {
     let mounted = true;
 
@@ -24,11 +23,11 @@ export default function CompleteProfilePage() {
         const { data, error: authError } =
           await supabase.auth.getUser();
 
-      console.log("Complete profile authentication:", {
-        userId: data.user?.id ?? null,
-        error: authError?.message ?? null,
-        currentUrl: window.location.href,
-      });
+        console.log("Complete profile authentication:", {
+          userId: data.user?.id ?? null,
+          error: authError?.message ?? null,
+          currentUrl: window.location.href,
+        });
 
         if (authError || !data.user) {
           router.replace("/login");
@@ -38,7 +37,7 @@ export default function CompleteProfilePage() {
         const { data: profile, error: profileError } =
           await supabase
             .from("Profile")
-            .select("username")
+            .select("profileCompleted")
             .eq("userID", data.user.id)
             .maybeSingle();
 
@@ -46,10 +45,9 @@ export default function CompleteProfilePage() {
 
         if (!mounted) return;
 
-        if (
-          profile?.username?.trim() &&
-          !profile.username.startsWith("pending_")
-        ) {
+        // Only redirect if the user has actually completed
+        // registration, not merely received an automatic username.
+        if (profile?.profileCompleted === true) {
           router.replace("/profile");
           return;
         }
@@ -64,7 +62,9 @@ export default function CompleteProfilePage() {
           );
         }
       } finally {
-        if (mounted) setChecking(false);
+        if (mounted) {
+          setChecking(false);
+        }
       }
     }
 
@@ -93,6 +93,24 @@ export default function CompleteProfilePage() {
     setError("");
 
     try {
+      // Confirm that the current session still belongs
+      // to the user completing registration.
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
+
+      if (authError || !authData.user) {
+        throw new Error(
+          "Your session has expired. Please log in again."
+        );
+      }
+
+      if (authData.user.id !== userId) {
+        throw new Error(
+          "Your session has changed. Please reload the page."
+        );
+      }
+
+      // Check username availability.
       const { data: taken, error: checkError } =
         await supabase.rpc("is_username_taken", {
           requested_username: cleanUsername,
@@ -105,10 +123,11 @@ export default function CompleteProfilePage() {
         return;
       }
 
+      // Verify that the user's profile exists.
       const { data: existingProfile, error: lookupError } =
         await supabase
           .from("Profile")
-          .select("userID")
+          .select("userID, profileCompleted")
           .eq("userID", userId)
           .maybeSingle();
 
@@ -120,46 +139,70 @@ export default function CompleteProfilePage() {
         );
       }
 
+      if (existingProfile.profileCompleted === true) {
+        router.replace("/profile");
+        router.refresh();
+        return;
+      }
+
+      // Save the selected username and mark
+      // registration as completed together.
       const { data: updatedProfile, error: updateError } =
         await supabase
           .from("Profile")
-          .update({ username: cleanUsername })
+          .update({
+            username: cleanUsername,
+            profileCompleted: true,
+          })
           .eq("userID", userId)
-          .select("username")
+          .eq("profileCompleted", false)
+          .select("username, profileCompleted")
           .single();
 
       if (updateError) throw updateError;
 
-      if (!updatedProfile) {
-  throw new Error("Username could not be saved.");
-}
+      if (
+        !updatedProfile ||
+        updatedProfile.username !== cleanUsername ||
+        updatedProfile.profileCompleted !== true
+      ) {
+        throw new Error(
+          "Username could not be saved. Please try again."
+        );
+      }
 
-// Send welcome email after successful registration
-try {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+      // Send the welcome email after successful registration.
+      // Email failure should not prevent account completion.
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-  if (session?.access_token) {
-    const response = await fetch("/api/send-welcome", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    });
+        if (session?.access_token) {
+          const response = await fetch("/api/send-welcome", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
 
-    if (!response.ok) {
-      console.error("Welcome email request failed");
-    }
-  }
-} catch (emailError) {
-  console.error("Welcome email error:", emailError);
-}
+          if (!response.ok) {
+            console.error(
+              "Welcome email request failed:",
+              response.status
+            );
+          }
+        }
+      } catch (emailError) {
+        console.error("Welcome email error:", emailError);
+      }
 
-// Continue even if the email fails
-router.replace("/profile");
-router.refresh();
+      // Registration is complete.
+      router.replace("/profile");
+      router.refresh();
     } catch (err) {
+      console.error("Complete profile error:", err);
+
       setError(
         err instanceof Error
           ? err.message
@@ -208,6 +251,7 @@ router.refresh();
               maxLength={20}
               pattern="[a-zA-Z0-9_]+"
               required
+              disabled={saving || !userId}
             />
           </label>
 

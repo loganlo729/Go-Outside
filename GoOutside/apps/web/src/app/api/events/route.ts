@@ -1,103 +1,28 @@
-// Next.js API response
-import { NextResponse } from "next/server";
-
-// Supabase client
-import { getSupabaseClient } from "@/src/lib/supabase/client";
-
-// Disable route caching
-export const dynamic = "force-dynamic";
-
-
-// GET all events, with optional filters
-export async function GET(request: Request) {
-  try {
-    const supabase = getSupabaseClient();
-    const { searchParams } = new URL(request.url);
-
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
-    const maxCost = searchParams.get("maxCost");
-    const hostID = searchParams.get("hostID");
-    const categoryID = searchParams.get("categoryID");
-
-    let query = supabase.from("Event").select("*");
-
-    // Filter by timeframe
-    if (startDate) {
-      query = query.gte("eventStartTime", startDate);
-    }
-
-    if (endDate) {
-      query = query.lte("eventEndTime", endDate);
-    }
-
-    // Filter by maximum cost
-    if (maxCost) {
-      query = query.lte("eventCost", Number(maxCost));
-    }
-
-    // Filter by event host
-    if (hostID) {
-      query = query.eq("userID", hostID);
-    }
-
-    // Filter by category
-    if (categoryID) {
-      query = query.eq("categoryID", categoryID);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({ data }, { status: 200 });
-  } catch (err) {
-    console.error("GET /api/events failed:", err);
-
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
-  }
+import { NextRequest, NextResponse } from 'next/server';
+import { db, identity, bodyObject, pick, jsonError, safeLimit, failSafe, validUUID } from '../../../lib/api-server';
+const writable = ['categoryID','eventTitle','eventDescription','eventStartTime','eventEndTime','eventLocation','eventCost','status','eventImageURL'] as const;
+export async function GET(req: NextRequest) {
+ return failSafe(async () => {
+  const u = new URL(req.url).searchParams;
+  let q = (await db()).from('Event').select('*');
+  if (u.has('startDate')) q=q.gte('eventStartTime',u.get('startDate')!);
+  if (u.has('endDate')) q=q.lte('eventEndTime',u.get('endDate')!);
+  if (u.has('maxCost')) {const n=Number(u.get('maxCost'));if(!Number.isFinite(n)||n<0)return jsonError('Invalid maxCost');q=q.lte('eventCost',n);}
+  if (u.has('hostID')) {if(!validUUID(u.get('hostID')!))return jsonError('Invalid hostID');q=q.eq('userID',u.get('hostID')!);}
+  if (u.has('categoryID')) {if(!validUUID(u.get('categoryID')!))return jsonError('Invalid categoryID');q=q.eq('categoryID',u.get('categoryID')!);}
+  const {data,error}=await q.order('eventStartTime',{ascending:true}).limit(safeLimit(req));
+  return error ? jsonError(error.message,500) : NextResponse.json(data??[]);
+ });
 }
-
-// POST a new event
-export async function POST(request: Request) {
-  try {
-    const supabase = getSupabaseClient();
-    const body = await request.json();
-
-    const { data, error } = await supabase
-      .from("Event")
-      .insert(body)
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        message: "Event created successfully",
-        data
-      },
-      { status: 201 }
-    );
-  } catch (err) {
-    console.error("POST /api/events failed:", err);
-
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
-  }
+export async function POST(req: NextRequest) {
+ return failSafe(async () => {
+  const me=await identity(req);if(!me)return jsonError('Unauthorized',401);
+  const input=await bodyObject(req);if(!input)return jsonError('Invalid JSON body');
+  if (input.userID && input.userID !== me) return jsonError('Cannot create events for another user',403);
+  if (typeof input.eventTitle!=='string'||!input.eventTitle.trim()||typeof input.eventStartTime!=='string'||typeof input.eventEndTime!=='string'||typeof input.eventLocation!=='string')return jsonError('Missing required event fields');
+  if (Date.parse(input.eventEndTime)<=Date.parse(input.eventStartTime))return jsonError('Event end must be after start');
+  const values={...pick(input,writable),userID:me};
+  const {data,error}=await (await db()).from('Event').insert(values).select().single();
+  return error ? jsonError(error.message,400) : NextResponse.json(data,{status:201});
+ });
 }
