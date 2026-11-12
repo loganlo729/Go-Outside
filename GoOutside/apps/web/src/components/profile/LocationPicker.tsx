@@ -198,7 +198,7 @@ export default function LocationPicker({
           </div>
         )}
         {Boolean(stateCode) && focused && query.trim().length >= 2 && !searching && !searchError && locationId === null && results.length === 0 && (
-          <small style={{ display: "block", marginTop: 5, color: "#64748B" }}>No matching cities or towns found.</small>
+          <small style={{ display: "block", marginTop: 5, color: "#64748B" }}>No matchingcities or towns found within {stateCode}.</small>
         )}
       </div>
     </div>

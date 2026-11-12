@@ -279,7 +279,7 @@ export default function LocationPicker({
         locationId === null &&
         results.length === 0 && (
           <Text style={styles.hint}>
-            No matching cities or towns found.
+            No matching cities or towns found within {stateCode}.
           </Text>
         )}
     </View>
