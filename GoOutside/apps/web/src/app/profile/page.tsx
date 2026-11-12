@@ -50,6 +50,7 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState("");
 
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
@@ -105,7 +106,7 @@ export default function ProfilePage() {
         const { data: profileData, error: profileError } =
           await supabase
             .from("Profile")
-            .select("displayName, profilePicturePath, bannerPath, locationID, stateCode")
+            .select("displayName, username, profilePicturePath, bannerPath, locationID, stateCode")
             .eq("userID", currentUser.id)
             .maybeSingle();
 
@@ -119,6 +120,7 @@ export default function ProfilePage() {
           setError("Unable to load your display name.");
         } else {
           profile.fullName = profileData?.displayName ?? "";
+          setUsername(profileData?.username ?? "");
           const savedState = profileData?.stateCode ?? "";
           const savedLocationId = profileData?.locationID ?? null;
           setStateCode(savedState);
@@ -423,6 +425,12 @@ export default function ProfilePage() {
             <div className="account-name-row">
               <h2>{displayName}</h2>
             </div>
+
+            {username && (
+              <p style={{ fontSize: "0.875rem", opacity: 0.7, margin: "2px 0 6px" }}>
+                @{username}
+              </p>
+            )}
 
             <p>
               Member since {memberSince}

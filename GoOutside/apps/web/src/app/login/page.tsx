@@ -158,7 +158,7 @@ export default function LoginPage() {
 
           <button
             type="button"
-            className="button button-tetriary"
+            className="button button-tertiary"
             disabled={loading || googleLoading}
             onClick={() => router.push("/forgot_password")}
           >

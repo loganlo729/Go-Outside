@@ -28,16 +28,11 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "package": "com.anonymous.gooutside"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "@react-native-community/datetimepicker",
-      "expo-router",
-      "expo-splash-screen",
-      "expo-status-bar"
-    ]
+    }
   }
 }
