@@ -193,6 +193,15 @@ input {
   background: #d9e1d5;
 }
 
+.button-tertiary {
+  background: #c9d1c3;
+  color: #315c3a;
+}
+
+.button-tertiary:hover {
+  background: #b1b9ad;
+}
+
 /* FEATURES */
 
 .features {
