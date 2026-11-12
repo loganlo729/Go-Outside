@@ -63,7 +63,7 @@ type EventCardProps = {
 
 function formatEventTitle(
   title: string | null,
-  maxLength = 22
+  maxLength = 20
 ): string {
   if (!title) {
     return "Untitled Event";
@@ -76,7 +76,7 @@ function formatEventTitle(
 
 function formatLocation(
   location: string | null,
-  maxLength = 45
+  maxLength = 30
 ): string {
   if (!location) {
     return "Location TBD";
@@ -601,9 +601,9 @@ const styles = StyleSheet.create({
   // --------------------------------------------------
 
   body: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingHorizontal: 13,
+    paddingTop: 13,
+    paddingBottom: 10,
   },
 
   date: {
@@ -618,16 +618,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#1F2E22",
     lineHeight: 22,
-    minHeight: 44,
-    marginBottom: 12,
+    minHeight: 25,
+    marginBottom: 4,
   },
 
   location: {
     fontSize: 12,
     color: "#8290A4",
     lineHeight: 18,
-    minHeight: 36,
-    marginBottom: 10,
+    minHeight: 5,
+    marginBottom: 5,
   },
 
   hostLine: {
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 5,
     gap: 8,
   },
 
