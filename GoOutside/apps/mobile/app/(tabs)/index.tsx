@@ -1,6 +1,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -138,18 +138,15 @@ export default function HomeScreen() {
     }
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      void loadEvents(true);
+    }, [loadEvents])
+  );
 
   // Check authentication and listen for login/logout changes.
   useEffect(() => {
     let mounted = true;
-
-    async function initialize() {
-      await loadEvents();
-
-      if (!mounted) return;
-    }
-
-    void initialize();
 
     const {
       data: { subscription },
@@ -158,9 +155,7 @@ export default function HomeScreen() {
 
       setIsLoggedIn(!!session?.user);
 
-      if (session) {
-        void loadEvents();
-      } else {
+      if (!session) {
         setEvents([]);
       }
     });
@@ -169,7 +164,7 @@ export default function HomeScreen() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadEvents]);
+  }, []);
 
   // Only show upcoming events, sorted by start time.
   const upcomingEvents = useMemo(() => {
