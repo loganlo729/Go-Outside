@@ -58,6 +58,80 @@
     }
   ],
   "paths": {
+    "/api/users/{userID}/calendar": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Get user calendar events",
+        "description": "Returns events created by the authenticated user and events they have RSVP’d to. Each event appears once and includes isHost and isRSVP flags.",
+        "parameters": [
+          {
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "description": "ID of the authenticated user",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendar events retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/Event"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "isHost",
+                          "isRSVP"
+                        ],
+                        "properties": {
+                          "isHost": {
+                            "type": "boolean",
+                            "description": "True when this user created the event"
+                          },
+                          "isRSVP": {
+                            "type": "boolean",
+                            "description": "True when this user RSVP’d to the event"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid user ID"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "User cannot access another user’s calendar"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/api/auth/register": {
       "post": {
         "tags": [
