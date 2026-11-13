@@ -156,7 +156,7 @@
 }
 
 .cardBody {
-  padding: 13px 13px 0px;
+  padding: 13px 13px 10px;
 }
 
 .date {
@@ -182,7 +182,7 @@
 
 .cardFooter {
   border-top: 1px solid #e5e9ee;
-  margin-top: 13px;
+  margin-top: 10px;
   padding-top: 10px;
   display: flex;
   justify-content: space-between;
@@ -752,6 +752,7 @@
   margin: 0 auto;
   padding: 28px 28px 80px;
   box-sizing: border-box;
+  background-color: hsl(134, 25%, 80%);
 }
 
 /* --------------------------------------------------
@@ -764,7 +765,7 @@
   gap: 10px;
   margin-bottom: 28px;
 
-  color: #3f6d3f;
+  color: hsl(134, 32%, 29%);
   font-size: 15px;
   font-weight: 700;
   text-decoration: none;

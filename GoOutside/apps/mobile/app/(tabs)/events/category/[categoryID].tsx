@@ -196,7 +196,7 @@ export default function CategoryEventsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F7F9F5",
+    backgroundColor: "hsl(134, 25%, 80%)",
     paddingHorizontal: 18,
     paddingTop: 20,
   },
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
 
   backText: {
-    color: "#3F6D3F",
+    color: "hsl(134, 52%, 18%)",
     fontSize: 15,
     fontWeight: "700",
   },

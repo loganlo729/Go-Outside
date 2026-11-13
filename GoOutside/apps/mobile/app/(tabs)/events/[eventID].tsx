@@ -97,6 +97,7 @@ export default function EventDetailsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // --------------------------------------------------
   // Event Management State
@@ -175,17 +176,14 @@ export default function EventDetailsScreen() {
         await Promise.all([
           getEventByID(eventID),
           getEventCategories().catch(() => []),
-          supabase.auth.getUser(),
+          supabase.auth.getSession(),
         ]);
 
-      if (auth.error) {
-        throw auth.error;
-      }
 
       setEvent(result);
 
       setViewerID(
-        auth.data.user?.id ?? null
+        auth.data.session?.user?.id ?? null
       );
 
       setCategoryName(
@@ -278,13 +276,22 @@ export default function EventDetailsScreen() {
       async function loadRSVP() {
         try {
           const {
-            data: { user },
-            error: authError,
-          } = await supabase.auth.getUser();
+            data: { session },
+            error: sessionError,
+          } = await supabase.auth.getSession();
 
-          if (authError) {
-            throw authError;
+          // Signed-out users can view events without an RSVP.
+          if (!active || !session?.user) {
+            return;
           }
+
+          if (sessionError) {
+            throw sessionError;
+          }
+
+          const user = session.user;
+          currentUserID = user.id;
+
 
           if (!active || !user) {
             return;
@@ -351,9 +358,9 @@ export default function EventDetailsScreen() {
     }
 
     setRSVPError("");
-
+    
     if (!viewerID) {
-      router.push("/Login_Sign_Up/login");
+      setShowLoginModal(true);
       return;
     }
 
@@ -860,6 +867,56 @@ export default function EventDetailsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ----------------------------------------
+          Login Required Modal
+      ---------------------------------------- */}
+
+      <Modal
+        visible={showLoginModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLoginModal(false)}
+      >
+        <View style={styles.loginModalOverlay}>
+          <View style={styles.loginModalContent}>
+
+            <Text style={styles.loginModalTitle}>
+              Login Required
+            </Text>
+
+            <Text style={styles.loginModalMessage}>
+              You need to log in to RSVP to an event.
+            </Text>
+
+            <View style={styles.loginModalActions}>
+
+              <Pressable
+                style={styles.loginModalCancel}
+                onPress={() => setShowLoginModal(false)}
+              >
+                <Text style={styles.loginModalCancelText}>
+                  Cancel
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.loginModalConfirm}
+                onPress={() => {
+                  setShowLoginModal(false);
+                  router.push("/login_sign_up/login");
+                }}
+              >
+                <Text style={styles.loginModalConfirmText}>
+                  Log In
+                </Text>
+              </Pressable>
+
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -1227,6 +1284,74 @@ const styles = StyleSheet.create({
   },
   confirmText: {
     color: "#FFFFFF",
+    fontWeight: "700",
+  },
+
+    
+  loginModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+
+  loginModalContent: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 26,
+    borderWidth: 1,
+    borderColor: "#E0E6DB",
+  },
+
+  loginModalTitle: {
+    fontSize: 23,
+    fontWeight: "800",
+    color: "#243126",
+    marginBottom: 12,
+  },
+
+  loginModalMessage: {
+    fontSize: 15,
+    lineHeight: 23,
+    color: "#657463",
+    marginBottom: 26,
+  },
+
+  loginModalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+  },
+
+  loginModalCancel: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#CBD5C5",
+    alignItems: "center",
+  },
+
+  loginModalCancelText: {
+    color: "#4F7846",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  loginModalConfirm: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    backgroundColor: "#4F7846",
+    alignItems: "center",
+  },
+
+  loginModalConfirmText: {
+    color: "#FFFFFF",
+    fontSize: 14,
     fontWeight: "700",
   },
 });

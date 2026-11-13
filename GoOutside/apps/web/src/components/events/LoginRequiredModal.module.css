@@ -1,0 +1,68 @@
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+.modal {
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border: 1px solid #e0e6db;
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16);
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: 23px;
+  font-weight: 800;
+  color: #243126;
+}
+
+.message {
+  margin: 0 0 26px;
+  color: #657463;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancelButton,
+.loginButton {
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cancelButton {
+  background: white;
+  color: #4f7846;
+  border: 1px solid #cbd5c5;
+}
+
+.loginButton {
+  background: #4f7846;
+  color: white;
+  border: 1px solid #4f7846;
+}
+
+.cancelButton:focus-visible,
+.loginButton:focus-visible {
+  outline: 2px solid #207e75;
+  outline-offset: 3px;
+}

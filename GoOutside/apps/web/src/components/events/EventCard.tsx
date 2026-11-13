@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 // Navigation
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import LoginRequiredModal from "./LoginRequiredModal";
 
 // Event type
 import type { EventRecord } from "../../types/event";
@@ -60,6 +61,8 @@ export default function EventCard({
   from = "all_events",
 }: EventCardProps) {
   const router = useRouter();
+
+  const [showLoginModal, setShowLoginModal] = useState(false);
   
   // --------------------------------------------------
   // Host Name State
@@ -174,22 +177,11 @@ export default function EventCard({
           throw sessionError;
         }
 
-        if (!active || !session) {
+        if (!active || !session?.user) {
           return;
         }
 
-        const {
-          data: { user },
-          error: authError,
-        } = await client.auth.getUser();
-
-        if (authError) {
-          throw authError;
-        }
-
-        if (!active || !user) {
-          return;
-        }
+        const user = session.user;
 
         currentUserID = user.id;
         setUserID(user.id);
@@ -248,7 +240,7 @@ export default function EventCard({
     setRSVPError("");
 
     if (!userID) {
-      router.push("/login");
+      setShowLoginModal(true);
       return;
     }
 
@@ -285,12 +277,15 @@ export default function EventCard({
     }
   }
 
-  // --------------------------------------------------
+   // --------------------------------------------------
   // Render
   // --------------------------------------------------
+
   return (
     <article className={styles.card}>
-      {/* Clickable Card Overlay */}
+      {/* ----------------------------------------
+          Clickable Card Overlay
+      ---------------------------------------- */}
 
       <Link
         href={{
@@ -303,7 +298,9 @@ export default function EventCard({
         }`}
       />
 
-      {/* Event Image */}
+      {/* ----------------------------------------
+          Event Image
+      ---------------------------------------- */}
 
       {event.eventImageURL?.startsWith("https://") ? (
         <img
@@ -318,7 +315,9 @@ export default function EventCard({
         </div>
       )}
 
-      {/* Event Information */}
+      {/* ----------------------------------------
+          Event Information
+      ---------------------------------------- */}
 
       <div className={styles.cardBody}>
         {/* Date */}
@@ -339,9 +338,10 @@ export default function EventCard({
         {/* Location */}
 
         <p className={styles.location}>
-          ⌖ {event.eventLocation
-            ? event.eventLocation.length > 65
-              ? `${event.eventLocation.slice(0, 65)}...`
+          ⌖{" "}
+          {event.eventLocation
+            ? event.eventLocation.length > 30
+              ? `${event.eventLocation.slice(0, 30)}...`
               : event.eventLocation
             : "Location TBD"}
         </p>
@@ -352,19 +352,29 @@ export default function EventCard({
           Hosted by: <strong>{hostName}</strong>
         </p>
 
-        {/* Footer */}
+        {/* ----------------------------------------
+            Card Footer
+        ---------------------------------------- */}
 
         <div className={styles.cardFooter}>
+          {/* Event Cost */}
+
           <strong>
             {formatEventCost(event.eventCost)}
           </strong>
 
+          {/* Featured Badge and RSVP */}
+
           <div className={styles.rsvpActions}>
+            {/* Featured Badge */}
+
             {event.isFeatured && (
               <span className={styles.featuredBadge}>
                 Featured
               </span>
             )}
+
+            {/* RSVP / Going Button */}
 
             {canRSVP && (
               <button
@@ -396,7 +406,9 @@ export default function EventCard({
           </div>
         </div>
 
-        {/* RSVP Error */}
+        {/* ----------------------------------------
+            RSVP Error
+        ---------------------------------------- */}
 
         {!!rsvpError && (
           <p
@@ -407,6 +419,19 @@ export default function EventCard({
           </p>
         )}
       </div>
+
+      {/* ----------------------------------------
+          Login Required Modal
+      ---------------------------------------- */}
+
+      <LoginRequiredModal
+        open={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLogin={() => {
+          setShowLoginModal(false);
+          router.push("/login");
+        }}
+      />
     </article>
   );
 }
