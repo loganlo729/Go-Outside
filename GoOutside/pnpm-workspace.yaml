@@ -4,6 +4,7 @@ packages:
 
 overrides:
   "@supabase/supabase-js": "2.118.0"
+  "@types/swagger-ui-react>@types/react": "^18.3.0"
 
 allowBuilds:
   '@scarf/scarf': false
