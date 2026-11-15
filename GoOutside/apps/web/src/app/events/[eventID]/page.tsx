@@ -872,7 +872,7 @@ export default function EventDetailsPage() {
           <a
             href={backHref}
             className={styles.backLink}
-            onClick={(clickEvent: MouseEvent<HTMLButtonElement>) => {
+            onClick={(clickEvent: React.MouseEvent<HTMLAnchorElement>) => {
               // Return to the actual previous page.
               if (window.history.length > 1) {
                 router.back();
