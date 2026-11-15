@@ -6,6 +6,7 @@ import {
   useEffect,
   useRef,
   useState,
+  MouseEvent,
 } from "react";
 
 // React types
@@ -322,6 +323,12 @@ export default function CreateEventPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Which Dashboard page the user came from, to return to after saving or canceling
+  const from =
+  searchParams.get("from") === "all_events"
+    ? "all_events"
+    : "my_events";
+
   // --------------------------------------------------
   // Create / Edit Mode
   // --------------------------------------------------
@@ -331,8 +338,8 @@ export default function CreateEventPage() {
   const isEditMode = Boolean(editEventID);
 
   const eventDetailsHref = editEventID
-    ? `/events/${encodeURIComponent(editEventID)}?from=my_events`
-    : "/events/my_events";
+  ? `/events/${encodeURIComponent(editEventID)}?from=${from}`
+  : "/events/my_events";
 
   // --------------------------------------------------
   // Event Fields
@@ -972,7 +979,7 @@ export default function CreateEventPage() {
         );
 
         // Return to the updated event.
-        router.push(eventDetailsHref);
+        router.replace(eventDetailsHref);
         router.refresh();
       } else {
         // --------------------------------------------------
@@ -981,7 +988,7 @@ export default function CreateEventPage() {
 
         await createEvent(eventData, photo);
 
-        router.push("/events/my_events");
+        router.replace("/events/my_events");
         router.refresh();
       }
     } catch (saveError) {
@@ -1080,7 +1087,7 @@ export default function CreateEventPage() {
           </p>
 
           <Link
-            href="/events/my_events"
+            href={isEditMode ? eventDetailsHref : "/events/my_events"}
             className={styles.backLink}
           >
             Back to My Events
@@ -1546,7 +1553,7 @@ export default function CreateEventPage() {
               href={eventDetailsHref}
               className={styles.ghostButton}
               aria-disabled={saving}
-              onClick={(event) => {
+              onClick={(event: MouseEvent<HTMLAnchorElement>) => {
                 if (saving) {
                   event.preventDefault();
                 }

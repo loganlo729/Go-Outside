@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
+  MouseEvent,
 } from "react";
 
 // Navigation
@@ -840,9 +841,8 @@ export default function EventDetailsPage() {
       }
 
       // Return to My Events after deletion.
-
       router.replace("/events/my_events");
-      router.refresh();
+
     } catch (deleteError) {
       setManagementError(
         deleteError instanceof Error
@@ -869,21 +869,20 @@ export default function EventDetailsPage() {
         <div className={styles.navigation}>
           {/* Back to Events */}
 
-          <button
-            type="button"
+          <a
+            href={backHref}
             className={styles.backLink}
-            onClick={() => {
-              // Return to the actual previous page.
-              if (window.history.length > 1) {
-                router.back();
-              } else {
-                // Fallback for a directly opened event link.
-                router.push(backHref);
-              }
+            onClick={(clickEvent) => {
+              clickEvent.preventDefault();
+
+              console.log("Current URL:", window.location.href);
+              console.log("Back destination:", backHref);
+
+              window.location.assign(backHref);
             }}
           >
             ← Back to Events
-          </button>
+          </a>
 
           {/* ----------------------------------------
               Owner-Only Event Controls
@@ -921,10 +920,10 @@ export default function EventDetailsPage() {
                     {/* Edit Event */}
 
                     <Link
-                      href={`/events/create_event?edit=${encodeURIComponent(eventID)}`}
+                      href={`/events/create_event?edit=${encodeURIComponent(eventID)}&from=${from}`}
                       className={styles.editEventButton}
                       aria-disabled={!!managingEvent}
-                      onClick={(clickEvent) => {
+                      onClick={(clickEvent: React.MouseEvent<HTMLAnchorElement>) => {
                         if (managingEvent) {
                           clickEvent.preventDefault();
                         }

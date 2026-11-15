@@ -1233,11 +1233,17 @@ export default function CreateEventScreen() {
           disabled={saving}
         />
 
-        {/* Featured */}
+        {/* ----------------------------------------
+            Featured Post
+        ---------------------------------------- */}
 
-        <View style={styles.switchRow}>
-          <Text style={styles.label}>
-            Featured Post?
+        <Text style={styles.label}>
+          Featured Post?
+        </Text>
+
+        <View style={styles.featureBox}>
+          <Text style={styles.featureDescription}>
+            Mark this event as featured.
           </Text>
 
           <Switch
@@ -1245,88 +1251,133 @@ export default function CreateEventScreen() {
             onValueChange={setFeatured}
             disabled={saving}
             trackColor={{
+              false: "#CDD3C9",
               true: green,
             }}
+            thumbColor="#FFFFFF"
+            accessibilityLabel="Featured Post"
           />
         </View>
 
-        {/* Event Photo */}
+        {/* ----------------------------------------
+            Event Photo
+        ---------------------------------------- */}
 
         <Text style={styles.label}>
           Event Photo
         </Text>
 
-        <Pressable
-          style={styles.photoArea}
-          disabled={saving}
-          onPress={() =>
-            void pickImage()
-          }
-        >
+        <View style={styles.photoArea}>
           {displayedPhotoURL ? (
             <>
+              {/* Selected Image Preview */}
+
               <Image
                 source={{
                   uri: displayedPhotoURL,
                 }}
                 style={styles.preview}
-                resizeMode="cover"
+                resizeMode="contain"
               />
 
-              <Text style={styles.help}>
+              {/* Image Details */}
+
+              <Text style={styles.photoDetails}>
                 {photo
                   ? `${(photo.size / 1048576).toFixed(2)} MB · Cropped 16:9`
                   : "Current event photo"}
               </Text>
+
+              {/* Photo Action Buttons */}
+
+              <View style={styles.photoActions}>
+                {/* Change Photo */}
+
+                <Pressable
+                  style={[
+                    styles.photoAction,
+                    styles.changePhotoButton,
+                  ]}
+                  disabled={saving}
+                  onPress={() => void pickImage()}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.changePhotoText}>
+                    Change Photo
+                  </Text>
+                </Pressable>
+
+                {/* Crop Photo */}
+
+                <Pressable
+                  style={[
+                    styles.photoAction,
+                    styles.cropPhotoButton,
+                    (saving || !originalPhoto) &&
+                      styles.disabledPhotoButton,
+                  ]}
+                  disabled={saving || !originalPhoto}
+                  onPress={() => {
+                    if (originalPhoto) {
+                      setPhotoToCrop(originalPhoto);
+                    }
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.cropPhotoText}>
+                    Crop
+                  </Text>
+                </Pressable>
+
+                {/* Remove Photo */}
+
+                <Pressable
+                  style={[
+                    styles.photoAction,
+                    styles.removePhotoButton,
+                  ]}
+                  disabled={saving}
+                  onPress={removePhoto}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.removePhotoText}>
+                    Remove
+                  </Text>
+                </Pressable>
+              </View>
             </>
           ) : (
-            <Text style={styles.inputText}>
-              + Choose Photo (JPG, PNG, or WebP)
-            </Text>
+            <>
+              {/* Empty Upload State */}
+
+              <Text style={styles.uploadIcon}>
+                +
+              </Text>
+
+              <Text style={styles.uploadTitle}>
+                Upload an Event Photo
+              </Text>
+
+              <Text style={styles.uploadHelp}>
+                JPG, PNG, or WebP. Maximum 5 MB.
+              </Text>
+
+              <Pressable
+                style={[
+                  styles.photoAction,
+                  styles.changePhotoButton,
+                ]}
+                disabled={saving}
+                onPress={() => void pickImage()}
+                accessibilityRole="button"
+              >
+                <Text style={styles.changePhotoText}>
+                  Choose Photo
+                </Text>
+              </Pressable>
+            </>
           )}
-        </Pressable>
-
-        {!!displayedPhotoURL && (
-          <View style={styles.photoActions}>
-            <Pressable
-              style={styles.photoAction}
-              disabled={saving}
-              onPress={() =>
-                void pickImage()
-              }
-            >
-              <Text style={styles.actionText}>
-                Change
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.photoAction}
-              disabled={
-                saving || !originalPhoto
-              }
-              onPress={() => {
-                if (originalPhoto) {
-                  setPhotoToCrop(originalPhoto);
-                }
-              }}
-            >
-              <Text style={styles.actionText}>
-                Crop
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.photoAction}
-              disabled={saving}
-              onPress={removePhoto}
-            >
-              <Text style={styles.remove}>
-                Remove
-              </Text>
-            </Pressable>
-          </View>
-        )}
+        </View>
 
         {/* Error */}
 
@@ -1341,7 +1392,7 @@ export default function CreateEventScreen() {
 
         {/* Save Buttons */}
 
-        <View style={styles.row}>
+        <View style={[styles.row, styles.saveActions]}>
           {isEditMode ? (
             <Pressable
               style={[
@@ -1542,54 +1593,199 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: green,
   },
-  switchRow: {
-    marginTop: 22,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+  
+    // --------------------------------------------------
+    // Featured Post
+    // --------------------------------------------------
+
+    featureBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+
+      minHeight: 62,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+
+      backgroundColor: "#FAFBF8",
+      borderWidth: 1,
+      borderColor: "#D7DED2",
+      borderRadius: 12,
+
+      marginBottom: 0,
+      gap: 12,
+    },
+
+    featureDescription: {
+      flex: 1,
+      color: "#63715F",
+      fontSize: 14,
+      lineHeight: 20,
+    },
+
+    // --------------------------------------------------
+  // Event Photo Upload
+  // --------------------------------------------------
+
   photoArea: {
-    minHeight: 180,
-    borderRadius: 16,
+    width: "100%",
+    minHeight: 200,
+
+    padding: 18,
+
+    backgroundColor: "#FAFBF8",
+
     borderWidth: 2,
     borderStyle: "dashed",
     borderColor: "#CFD6CB",
-    backgroundColor: "#FAFBF8",
-    padding: 16,
+    borderRadius: 16,
+
     alignItems: "center",
     justifyContent: "center",
+
+    marginBottom: 20,
   },
+
+  // --------------------------------------------------
+  // Image Preview
+  // --------------------------------------------------
+
   preview: {
     width: "100%",
     aspectRatio: 16 / 9,
+
     borderRadius: 12,
     backgroundColor: "#EEF1EA",
   },
+
+  // --------------------------------------------------
+  // Image Details
+  // --------------------------------------------------
+
+  photoDetails: {
+    marginTop: 12,
+    marginBottom: 18,
+
+    color: "#63715F",
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+
+  // --------------------------------------------------
+  // Photo Action Container
+  // --------------------------------------------------
+
   photoActions: {
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     flexWrap: "wrap",
-    gap: 10,
-    marginTop: 12,
+
+    width: "100%",
+    gap: 8,
   },
+
+  // --------------------------------------------------
+  // Shared Photo Button Styling
+  // --------------------------------------------------
+
   photoAction: {
+    minHeight: 44,
+
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+
     borderWidth: 1,
-    borderColor: "#B8C9B2",
-    backgroundColor: "#E5EADF",
     borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
+
+    alignItems: "center",
+    justifyContent: "center",
   },
-  actionText: {
-    color: "#2F5B35",
-    fontSize: 14,
+
+  // --------------------------------------------------
+  // Change Photo
+  // --------------------------------------------------
+
+  changePhotoButton: {
+    backgroundColor: "#4C7A45",
+    borderColor: "#4C7A45",
+  },
+
+  changePhotoText: {
+    color: "#FFFFFF",
+    fontSize: 13,
     fontWeight: "700",
   },
-  remove: {
+
+  // --------------------------------------------------
+  // Crop Photo
+  // --------------------------------------------------
+
+  cropPhotoButton: {
+    backgroundColor: "#E7F4F2",
+    borderColor: "#8CC5BF",
+  },
+
+  cropPhotoText: {
+    color: "#207E75",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  // --------------------------------------------------
+  // Remove Photo
+  // --------------------------------------------------
+
+  removePhotoButton: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E0C9C5",
+  },
+
+  removePhotoText: {
     color: "#B42318",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
   },
+
+  saveActions: {
+    marginTop: 8,
+  },
+
+  // --------------------------------------------------
+  // Disabled Button
+  // --------------------------------------------------
+
+  disabledPhotoButton: {
+    opacity: 0.5,
+  },
+
+  // --------------------------------------------------
+  // Empty Upload State
+  // --------------------------------------------------
+
+  uploadIcon: {
+    color: "#4C7A45",
+    fontSize: 36,
+    fontWeight: "400",
+    marginBottom: 8,
+  },
+
+  uploadTitle: {
+    color: "#1F2E22",
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 6,
+  },
+
+  uploadHelp: {
+    color: "#63715F",
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: 18,
+  },
+
   primary: {
     backgroundColor: green,
     borderRadius: 12,
@@ -1631,4 +1827,5 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 16,
   },
+
 });

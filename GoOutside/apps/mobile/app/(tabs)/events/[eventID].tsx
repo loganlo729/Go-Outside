@@ -1,10 +1,12 @@
 
+// React
 import React, {
   useCallback,
   useRef,
   useState,
 } from "react";
 
+// React Native
 import {
   ActivityIndicator,
   Image,
@@ -14,8 +16,10 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 
+// Navigation
 import {
   useFocusEffect,
   useLocalSearchParams,
@@ -24,8 +28,10 @@ import {
 
 import { Ionicons } from "@expo/vector-icons";
 
+// Supabase
 import { supabase } from "../../../src/lib/supabase";
 
+// Event services
 import {
   addEventRSVP,
   getEventByID,
@@ -35,16 +41,17 @@ import {
   subscribeToRSVPChanges,
 } from "../../../src/services/events";
 
+// Event management
 import {
   cancelMobileEvent,
   deleteMobileDraft,
   publishMobileEvent,
 } from "../../../src/services/eventManagement";
 
-import type {
-  EventRecord,
-} from "../../../src/types/event";
+// Types
+import type { EventRecord } from "../../../src/types/event";
 
+// Formatting
 import {
   formatEventCost,
   formatEventDate,
@@ -55,7 +62,9 @@ import {
 // --------------------------------------------------
 
 const GREEN = "#4C7A45";
+const DARK_GREEN = "#2F6136";
 const INK = "#1F2E22";
+const BACKGROUND = "#F6F8F3";
 
 // --------------------------------------------------
 // Event Details Screen
@@ -63,11 +72,14 @@ const INK = "#1F2E22";
 
 export default function EventDetailsScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
 
-  const { eventID, from } = useLocalSearchParams<{
-    eventID: string;
-    from?: string;
-  }>();
+  const { eventID, from, returnTo } =
+    useLocalSearchParams<{
+      eventID: string;
+      from?: string;
+      returnTo?: string;
+    }>();
 
   const origin =
     from === "my_events"
@@ -80,7 +92,7 @@ export default function EventDetailsScreen() {
       : "/events/all_events";
 
   // --------------------------------------------------
-  // Event State
+  // State
   // --------------------------------------------------
 
   const [event, setEvent] =
@@ -97,7 +109,6 @@ export default function EventDetailsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // --------------------------------------------------
   // Event Management State
@@ -120,15 +131,12 @@ export default function EventDetailsScreen() {
   // --------------------------------------------------
 
   const [going, setGoing] = useState(false);
+  const [rsvpLoading, setRSVPLoading] = useState(true);
+  const [rsvpSaving, setRSVPSaving] = useState(false);
+  const [rsvpError, setRSVPError] = useState("");
 
-  const [rsvpLoading, setRSVPLoading] =
-    useState(true);
-
-  const [rsvpSaving, setRSVPSaving] =
+  const [showLoginModal, setShowLoginModal] =
     useState(false);
-
-  const [rsvpError, setRSVPError] =
-    useState("");
 
   const rsvpSavingRef = useRef(false);
   const rsvpVersion = useRef(0);
@@ -150,7 +158,8 @@ export default function EventDetailsScreen() {
 
   const isEventOver =
     !!event?.eventEndTime &&
-    new Date(event.eventEndTime).getTime() <= Date.now();
+    new Date(event.eventEndTime).getTime() <=
+      Date.now();
 
   const canRSVP = isPublished && isUpcoming;
 
@@ -158,6 +167,23 @@ export default function EventDetailsScreen() {
     !!event &&
     !!viewerID &&
     event.userID === viewerID;
+
+  // --------------------------------------------------
+  // Back Navigation
+  // --------------------------------------------------
+
+  function goBack() {
+    if (returnTo?.startsWith("/events/")) {
+      router.replace(returnTo as any);
+      return;
+    }
+
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(backPath);
+    }
+  }
 
   // --------------------------------------------------
   // Load Event
@@ -179,6 +205,12 @@ export default function EventDetailsScreen() {
           supabase.auth.getSession(),
         ]);
 
+      if (auth.error) {
+        console.warn(
+          "Unable to read auth session:",
+          auth.error
+        );
+      }
 
       setEvent(result);
 
@@ -204,7 +236,10 @@ export default function EventDetailsScreen() {
             .maybeSingle();
 
         if (hostError) {
-          console.error(hostError);
+          console.error(
+            "Unable to load host:",
+            hostError
+          );
         }
 
         setHostName(
@@ -224,7 +259,7 @@ export default function EventDetailsScreen() {
     }
   }, [eventID]);
 
-  // Refresh when returning from Edit Event.
+  // Refresh when screen receives focus.
 
   useFocusEffect(
     useCallback(() => {
@@ -233,7 +268,7 @@ export default function EventDetailsScreen() {
   );
 
   // --------------------------------------------------
-  // Load RSVP and Subscribe to Changes
+  // Load RSVP
   // --------------------------------------------------
 
   useFocusEffect(
@@ -242,9 +277,7 @@ export default function EventDetailsScreen() {
       let currentUserID: string | null = null;
 
       const selectedID = event?.eventID;
-
-      const initialVersion =
-        ++rsvpVersion.current;
+      const initialVersion = ++rsvpVersion.current;
 
       setGoing(false);
       setRSVPLoading(true);
@@ -258,10 +291,12 @@ export default function EventDetailsScreen() {
         };
       }
 
-      // Synchronize RSVP across event cards.
-
       const unsubscribe = subscribeToRSVPChanges(
-        (changedEventID, changedUserID, isGoing) => {
+        (
+          changedEventID,
+          changedUserID,
+          isGoing
+        ) => {
           if (
             active &&
             changedEventID === selectedID &&
@@ -280,31 +315,23 @@ export default function EventDetailsScreen() {
             error: sessionError,
           } = await supabase.auth.getSession();
 
-          // Signed-out users can view events without an RSVP.
-          if (!active || !session?.user) {
-            return;
-          }
-
           if (sessionError) {
             throw sessionError;
           }
 
-          const user = session.user;
-          currentUserID = user.id;
-
-
-          if (!active || !user) {
+          // Signed-out users can browse events.
+          if (!active || !session?.user) {
             return;
           }
 
-          currentUserID = user.id;
+          currentUserID = session.user.id;
 
           const versionAtFetch =
             rsvpVersion.current;
 
           const hasRSVP = await getEventRSVP(
             selectedID!,
-            user.id
+            session.user.id
           );
 
           if (
@@ -334,9 +361,7 @@ export default function EventDetailsScreen() {
         active = false;
         unsubscribe();
 
-        if (
-          rsvpVersion.current >= initialVersion
-        ) {
+        if (rsvpVersion.current >= initialVersion) {
           rsvpVersion.current += 1;
         }
       };
@@ -358,7 +383,7 @@ export default function EventDetailsScreen() {
     }
 
     setRSVPError("");
-    
+
     if (!viewerID) {
       setShowLoginModal(true);
       return;
@@ -409,12 +434,13 @@ export default function EventDetailsScreen() {
       return;
     }
 
-    // Published events: cancel only.
-    if (action === "cancel" && !isPublished) {
+    if (
+      action === "cancel" &&
+      (!isPublished || isEventOver)
+    ) {
       return;
     }
 
-    // Drafts: publish or delete.
     if (
       action !== "cancel" &&
       !isDrafted
@@ -422,7 +448,6 @@ export default function EventDetailsScreen() {
       return;
     }
 
-    // Delete requires the confirmation modal.
     if (
       action === "delete" &&
       !confirmDelete
@@ -464,7 +489,7 @@ export default function EventDetailsScreen() {
   }
 
   // --------------------------------------------------
-  // Navigate to Edit Event
+  // Edit Event
   // --------------------------------------------------
 
   function editEvent() {
@@ -490,18 +515,13 @@ export default function EventDetailsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Navigation and Management Controls */}
+        {/* Navigation */}
 
         <View style={styles.navigation}>
           <Pressable
             style={styles.backButton}
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace(backPath);
-              }
-            }}
+            onPress={goBack}
+            accessibilityRole="button"
           >
             <Ionicons
               name="arrow-back"
@@ -514,15 +534,18 @@ export default function EventDetailsScreen() {
             </Text>
           </Pressable>
 
-          {/* Owner-Only Controls */}
+          {/* Owner Actions */}
 
           {!loading && isOwner && (
             <View style={styles.ownerActions}>
-              {/* Published: Cancel Only */}
+              {/* Published Event */}
 
               {isPublished && !isEventOver && (
                 <Pressable
-                  style={styles.cancelEvent}
+                  style={[
+                    styles.cancelEvent,
+                    !!managing && styles.disabledButton,
+                  ]}
                   disabled={!!managing}
                   onPress={() =>
                     void handleManagement("cancel")
@@ -535,24 +558,29 @@ export default function EventDetailsScreen() {
                   </Text>
                 </Pressable>
               )}
-              
 
-              {/* Draft: Edit, Publish, Delete */}
+              {/* Drafted Event */}
 
               {isDrafted && (
                 <>
                   <Pressable
-                    style={styles.editEvent}
+                    style={[
+                      styles.editEvent,
+                      !!managing && styles.disabledButton,
+                    ]}
                     disabled={!!managing}
                     onPress={editEvent}
                   >
                     <Text style={styles.editText}>
-                      Edit
+                      Edit Event
                     </Text>
                   </Pressable>
 
                   <Pressable
-                    style={styles.publishEvent}
+                    style={[
+                      styles.publishEvent,
+                      !!managing && styles.disabledButton,
+                    ]}
                     disabled={!!managing}
                     onPress={() =>
                       void handleManagement("publish")
@@ -561,12 +589,15 @@ export default function EventDetailsScreen() {
                     <Text style={styles.publishText}>
                       {managing === "publish"
                         ? "Publishing..."
-                        : "Publish"}
+                        : "Publish Event"}
                     </Text>
                   </Pressable>
 
                   <Pressable
-                    style={styles.deleteEvent}
+                    style={[
+                      styles.deleteEvent,
+                      !!managing && styles.disabledButton,
+                    ]}
                     disabled={!!managing}
                     onPress={() => {
                       setManagementError("");
@@ -593,21 +624,25 @@ export default function EventDetailsScreen() {
           </Text>
         )}
 
-        {/* Loading / Error */}
+        {/* Loading */}
 
         {loading && (
           <ActivityIndicator
-            color={GREEN}
             size="large"
-            style={{ marginTop: 48 }}
+            color={GREEN}
+            style={styles.loading}
           />
         )}
+
+        {/* Error */}
 
         {!loading && !!error && (
           <Text style={styles.error}>
             {error}
           </Text>
         )}
+
+        {/* Event Not Found */}
 
         {!loading && !error && !event && (
           <Text style={styles.message}>
@@ -619,9 +654,21 @@ export default function EventDetailsScreen() {
 
         {!loading && !error && event && (
           <>
-            {/* Event Image */}
+            {/* ----------------------------------------
+                Event Image
+            ---------------------------------------- */}
 
-            <View style={styles.hero}>
+            <View
+              style={[
+                styles.hero,
+                {
+                  height: Math.min(
+                    300,
+                    Math.max(170, width * 0.44)
+                  ),
+                },
+              ]}
+            >
               {event.eventImageURL ? (
                 <Image
                   source={{
@@ -632,166 +679,209 @@ export default function EventDetailsScreen() {
                 />
               ) : (
                 <View style={styles.placeholder}>
-                  <Text
-                    style={styles.placeholderText}
-                  >
+                  <Text style={styles.placeholderText}>
                     GO OUTSIDE
                   </Text>
                 </View>
               )}
             </View>
 
-            {/* Category / Title / Host */}
+            {/* ----------------------------------------
+                Event Header
+            ---------------------------------------- */}
+            <View style={styles.eventHeaderRow}>
+              {/* ----------------------------------------
+                  Left Column: Event Information
+              ---------------------------------------- */}
 
-            <Text style={styles.category}>
-              {categoryName}
-            </Text>
+              <View style={styles.eventHeaderLeft}>
+                {/* Category */}
 
-            <Text style={styles.title}>
-              {event.eventTitle ||
-                "Untitled Event"}
-            </Text>
-
-            <Text style={styles.host}>
-              Hosted by:{" "}
-              <Text style={styles.hostName}>
-                {hostName}
-              </Text>
-            </Text>
-
-            {/* Event Badges */}
-
-            <View style={styles.badges}>
-              {event.isFeatured && (
-                <Text
-                  style={styles.featuredBadge}
-                >
-                  Featured Event
+                <Text style={styles.category}>
+                  {categoryName}
                 </Text>
-              )}
 
-              {isDrafted && (
-                <Text
-                  style={styles.draftBadge}
-                >
-                  Draft
+                {/* Event Title */}
+
+                <Text style={styles.title}>
+                  {event.eventTitle || "Untitled Event"}
                 </Text>
-              )}
-            </View>
 
-            {/* RSVP Left / Cost Right */}
+                {/* Event Host */}
 
-            <View style={styles.costActions}>
-              {canRSVP && (
-                <Pressable
-                  style={[
-                    styles.rsvpButton,
-                    going && styles.goingButton,
-                  ]}
-                  disabled={
-                    rsvpLoading || rsvpSaving
-                  }
-                  onPress={() =>
-                    void handleRSVP()
-                  }
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    selected: going,
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.rsvpText,
-                      going && styles.goingText,
-                    ]}
-                  >
-                    {rsvpLoading || rsvpSaving
-                      ? "..."
-                      : going
-                        ? "Going"
-                        : "RSVP"}
+                <Text style={styles.host}>
+                  Hosted by:{" "}
+                  <Text style={styles.hostName}>
+                    {hostName}
                   </Text>
-                </Pressable>
-              )}
-
-              <View style={styles.priceBox}>
-                <Text style={styles.label}>
-                  Event Cost
                 </Text>
 
-                <Text style={styles.price}>
-                  {formatEventCost(
-                    event.eventCost
+                {/* Event Badges */}
+
+                {(event.isFeatured || isDrafted) && (
+                  <View style={styles.badges}>
+                    {event.isFeatured && (
+                      <Text style={styles.featuredBadge}>
+                        Featured Event
+                      </Text>
+                    )}
+
+                    {isDrafted && (
+                      <Text style={styles.draftBadge}>
+                        Draft
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* ----------------------------------------
+                  Right Column: RSVP and Event Cost
+              ---------------------------------------- */}
+
+              <View style={styles.eventHeaderRight}>
+                <View style={styles.costActions}>
+                  {/* RSVP Button */}
+
+                  {canRSVP && (
+                    <Pressable
+                      style={[
+                        styles.rsvpButton,
+                        going && styles.goingButton,
+                        (rsvpLoading || rsvpSaving) &&
+                          styles.disabledButton,
+                      ]}
+                      disabled={rsvpLoading || rsvpSaving}
+                      onPress={() => void handleRSVP()}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        going
+                          ? "Cancel RSVP for this event"
+                          : "RSVP to this event"
+                      }
+                      accessibilityState={{
+                        selected: going,
+                        disabled: rsvpLoading || rsvpSaving,
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.rsvpText,
+                          going && styles.goingText,
+                        ]}
+                      >
+                        {rsvpLoading || rsvpSaving
+                          ? "..."
+                          : going
+                            ? "Going"
+                            : "RSVP"}
+                      </Text>
+                    </Pressable>
                   )}
-                </Text>
+
+                  {/* Event Cost */}
+
+                  <View style={styles.priceBox}>
+                    <Text style={styles.label}>
+                      Event Cost
+                    </Text>
+
+                    <Text style={styles.price}>
+                      {formatEventCost(event.eventCost)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* RSVP Error */}
+
+                {!!rsvpError && (
+                  <Text style={styles.error}>
+                    {rsvpError}
+                  </Text>
+                )}
               </View>
             </View>
+            {/* ----------------------------------------
+                About and Event Information
+            ---------------------------------------- */}
 
-            {!!rsvpError && (
-              <Text style={styles.error}>
-                {rsvpError}
-              </Text>
-            )}
+            <View
+              style={[
+                styles.detailsGrid,
+                width >= 800 &&
+                  styles.detailsGridWide,
+              ]}
+            >
+              {/* About This Event */}
 
-            {/* Event Description */}
+              <View
+                style={[
+                  styles.panel,
+                  styles.descriptionPanel,
+                ]}
+              >
+                <Text style={styles.sectionTitle}>
+                  About This Event
+                </Text>
 
-            <View style={styles.panel}>
-              <Text style={styles.sectionTitle}>
-                About This Event
-              </Text>
+                <Text style={styles.description}>
+                  {event.eventDescription ||
+                    "No description has been provided for this event."}
+                </Text>
+              </View>
 
-              <Text style={styles.description}>
-                {event.eventDescription ||
-                  "No description has been provided for this event."}
-              </Text>
-            </View>
+              {/* Event Information */}
 
-            {/* Event Information */}
+              <View
+                style={[
+                  styles.panel,
+                  styles.infoPanel,
+                ]}
+              >
+                <Text style={styles.sectionTitle}>
+                  Event Information
+                </Text>
 
-            <View style={styles.panel}>
-              <Text style={styles.sectionTitle}>
-                Event Information
-              </Text>
+                <InfoRow
+                  icon="calendar-outline"
+                  label="Start Date & Time"
+                  value={formatEventDate(
+                    event.eventStartTime
+                  )}
+                />
 
-              <InfoRow
-                icon="calendar-outline"
-                label="Start Date & Time"
-                value={formatEventDate(
-                  event.eventStartTime
-                )}
-              />
+                <InfoRow
+                  icon="time-outline"
+                  label="End Date & Time"
+                  value={formatEventDate(
+                    event.eventEndTime
+                  )}
+                />
 
-              <InfoRow
-                icon="time-outline"
-                label="End Date & Time"
-                value={formatEventDate(
-                  event.eventEndTime
-                )}
-              />
+                <InfoRow
+                  icon="location-outline"
+                  label="Location"
+                  value={
+                    event.eventLocation ||
+                    "Location TBD"
+                  }
+                />
 
-              <InfoRow
-                icon="location-outline"
-                label="Location"
-                value={
-                  event.eventLocation ||
-                  "Location TBD"
-                }
-              />
-
-              <InfoRow
-                icon="pricetag-outline"
-                label="Category"
-                value={categoryName}
-                isLast
-              />
+                <InfoRow
+                  icon="pricetag-outline"
+                  label="Category"
+                  value={categoryName}
+                  isLast
+                />
+              </View>
             </View>
           </>
         )}
       </ScrollView>
 
-      {/* ----------------------------------------
-          Delete Confirmation Modal
-      ---------------------------------------- */}
+      {/* ==================================================
+          DELETE CONFIRMATION MODAL
+      ================================================== */}
 
       <Modal
         visible={confirmDelete}
@@ -805,6 +895,8 @@ export default function EventDetailsScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
+            {/* Delete Icon */}
+
             <View style={styles.deleteIcon}>
               <Ionicons
                 name="trash-outline"
@@ -813,14 +905,18 @@ export default function EventDetailsScreen() {
               />
             </View>
 
+            {/* Title */}
+
             <Text style={styles.modalTitle}>
               Delete Event?
             </Text>
 
+            {/* Description */}
+
             <Text style={styles.modalDescription}>
-              Are you sure you want to
-              permanently delete{" "}
-              <Text style={{ fontWeight: "700" }}>
+              Are you sure you want to permanently
+              delete{" "}
+              <Text style={styles.modalEventName}>
                 "{event?.eventTitle ||
                   "Untitled Event"}"
               </Text>
@@ -836,6 +932,8 @@ export default function EventDetailsScreen() {
                 {managementError}
               </Text>
             )}
+
+            {/* Actions */}
 
             <View style={styles.modalButtons}>
               <Pressable
@@ -868,19 +966,20 @@ export default function EventDetailsScreen() {
         </View>
       </Modal>
 
-      {/* ----------------------------------------
-          Login Required Modal
-      ---------------------------------------- */}
+      {/* ==================================================
+          LOGIN REQUIRED MODAL
+      ================================================== */}
 
       <Modal
         visible={showLoginModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowLoginModal(false)}
+        onRequestClose={() =>
+          setShowLoginModal(false)
+        }
       >
         <View style={styles.loginModalOverlay}>
           <View style={styles.loginModalContent}>
-
             <Text style={styles.loginModalTitle}>
               Login Required
             </Text>
@@ -890,40 +989,49 @@ export default function EventDetailsScreen() {
             </Text>
 
             <View style={styles.loginModalActions}>
+              {/* Cancel */}
 
               <Pressable
                 style={styles.loginModalCancel}
-                onPress={() => setShowLoginModal(false)}
+                onPress={() =>
+                  setShowLoginModal(false)
+                }
               >
-                <Text style={styles.loginModalCancelText}>
+                <Text
+                  style={styles.loginModalCancelText}
+                >
                   Cancel
                 </Text>
               </Pressable>
+
+              {/* Log In */}
 
               <Pressable
                 style={styles.loginModalConfirm}
                 onPress={() => {
                   setShowLoginModal(false);
-                  router.push("/login_sign_up/login");
+                  router.push(
+                    "/login_sign_up/login"
+                  );
                 }}
               >
-                <Text style={styles.loginModalConfirmText}>
+                <Text
+                  style={styles.loginModalConfirmText}
+                >
                   Log In
                 </Text>
               </Pressable>
-
             </View>
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
 
-// --------------------------------------------------
-// Reusable Event Information Row
-// --------------------------------------------------
+// ==================================================
+// REUSABLE EVENT INFORMATION ROW
+// ==================================================
 
 type InfoIcon =
   React.ComponentProps<typeof Ionicons>["name"];
@@ -948,13 +1056,13 @@ function InfoRow({
     >
       <Ionicons
         name={icon}
-        size={21}
+        size={18}
         color="#31988F"
-        style={{ marginRight: 14 }}
+        style={styles.infoIcon}
       />
 
-      <View style={{ flex: 1 }}>
-        <Text style={styles.label}>
+      <View style={styles.infoContent}>
+        <Text style={styles.infoLabel}>
           {label}
         </Text>
 
@@ -966,140 +1074,198 @@ function InfoRow({
   );
 }
 
-// --------------------------------------------------
-// Styles
-// --------------------------------------------------
+// ==================================================
+// STYLES
+// ==================================================
 
 const styles = StyleSheet.create({
+  // --------------------------------------------------
+  // Page
+  // --------------------------------------------------
+
   screen: {
     flex: 1,
-    backgroundColor: "#F6F7F3",
+    backgroundColor: BACKGROUND,
   },
+
   content: {
+    width: "100%",
+    maxWidth: 1100,
+    alignSelf: "center",
     paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 70,
+    paddingTop: 14,
+    paddingBottom: 38,
   },
+
+  // --------------------------------------------------
+  // Navigation
+  // --------------------------------------------------
+
   navigation: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
     gap: 12,
-    marginBottom: 22,
+    marginBottom: 14,
   },
+
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingVertical: 10,
   },
+
   backText: {
     color: GREEN,
     fontSize: 14,
     fontWeight: "700",
   },
+
+  // --------------------------------------------------
+  // Owner Actions
+  // --------------------------------------------------
+
   ownerActions: {
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
     gap: 8,
   },
+
   cancelEvent: {
-    backgroundColor: "#FFF5E6",
+    backgroundColor: "#F4DBA8",
     borderWidth: 1,
-    borderColor: "#E4B86A",
-    paddingHorizontal: 14,
+    borderColor: "#D39C3B",
+    paddingHorizontal: 17,
     paddingVertical: 11,
     borderRadius: 10,
   },
+
   cancelEventText: {
-    color: "#945D15",
+    color: "#754506",
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "800",
   },
+
   editEvent: {
-    backgroundColor: "#E5EADF",
+    backgroundColor: "#DCEBD6",
     borderWidth: 1,
-    borderColor: "#B8C9B2",
+    borderColor: "#8FB28A",
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 11,
   },
+
   editText: {
-    color: "#2F5B35",
-    fontWeight: "700",
+    color: "#285C30",
+    fontSize: 13,
+    fontWeight: "800",
   },
+
   publishEvent: {
     backgroundColor: GREEN,
+    borderWidth: 1,
+    borderColor: GREEN,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 11,
   },
+
   publishText: {
     color: "#FFFFFF",
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "800",
   },
+
   deleteEvent: {
-    backgroundColor: "#FFF0EE",
+    backgroundColor: "#FCE5E2",
     borderWidth: 1,
-    borderColor: "#E5B1AA",
+    borderColor: "#D78C83",
     borderRadius: 10,
     padding: 10,
   },
+
+  disabledButton: {
+    opacity: 0.6,
+  },
+
+  // --------------------------------------------------
+  // Event Image
+  // --------------------------------------------------
+
   hero: {
     width: "100%",
-    aspectRatio: 16 / 9,
     borderRadius: 16,
     overflow: "hidden",
-    backgroundColor: "#DFEDEA",
+    backgroundColor: "#E5EDE4",
+    borderWidth: 1,
+    borderColor: "#DCE6D8",
   },
+
   heroImage: {
     width: "100%",
     height: "100%",
   },
+
   placeholder: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
+
   placeholderText: {
     color: "#31988F",
     fontSize: 24,
     fontWeight: "800",
     letterSpacing: 3,
   },
+
+  // --------------------------------------------------
+  // Event Header
+  // --------------------------------------------------
+
   category: {
-    marginTop: 24,
-    marginBottom: 8,
+    marginTop: 0,
+    marginBottom: 5,
     color: "#3F6D3F",
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 1,
     textTransform: "uppercase",
   },
+
   title: {
-    color: INK,
-    fontSize: 30,
+    color: "#203326",
+    fontSize: 28,
     fontWeight: "800",
-    lineHeight: 38,
+    lineHeight: 34,
   },
+
   host: {
-    marginTop: 12,
+    marginTop: 7,
     fontSize: 14,
     color: "#63715F",
   },
+
   hostName: {
-    color: INK,
+    color: "#263C2C",
     fontWeight: "700",
   },
+
+  // --------------------------------------------------
+  // Event Badges
+  // --------------------------------------------------
+
   badges: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginTop: 14,
-    marginBottom: 20,
+    marginTop: 9,
+    marginBottom: 14,
   },
+
   featuredBadge: {
     backgroundColor: "#D7EFEB",
     color: "#207E75",
@@ -1110,6 +1276,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 12,
   },
+
   draftBadge: {
     backgroundColor: "#E8E9E6",
     color: "#5B645A",
@@ -1120,105 +1287,188 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 12,
   },
+
+  // --------------------------------------------------
+  // RSVP and Cost
+  // --------------------------------------------------
+
   costActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 20,
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 8,
+    width: "100%",
+    marginBottom: 0,
   },
+
   rsvpButton: {
-    flex: 1,
-    minHeight: 54,
+    width: "100%",
+    flex: 0,
+    minHeight: 44,
+
     borderRadius: 10,
     borderWidth: 1,
     borderColor: GREEN,
     backgroundColor: "#FFFFFF",
+
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
+
   goingButton: {
     backgroundColor: GREEN,
   },
+
   rsvpText: {
     color: GREEN,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
   },
+
   goingText: {
     color: "#FFFFFF",
   },
+
   priceBox: {
     flex: 1,
     minWidth: 120,
-    padding: 17,
-    backgroundColor: "#FFFFFF",
+    padding: 12,
+    backgroundColor: "#EDF4E9",
     borderWidth: 1,
-    borderColor: "#E0E6DD",
-    borderRadius: 16,
+    borderColor: "#CBDCC6",
+    borderRadius: 12,
   },
+
   label: {
-    color: "#63715F",
-    fontSize: 12,
+    color: "#54704F",
+    fontSize: 11,
     fontWeight: "700",
   },
+
   price: {
-    marginTop: 6,
-    color: "#3F6D3F",
-    fontSize: 24,
+    marginTop: 4,
+    color: "#376B38",
+    fontSize: 22,
     fontWeight: "800",
   },
+
+  // --------------------------------------------------
+  // Detail Panels
+  // --------------------------------------------------
+
+  detailsGrid: {
+    width: "100%",
+    gap: 14,
+  },
+
+  detailsGridWide: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+
   panel: {
-    padding: 22,
-    marginBottom: 18,
+    padding: 18,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E0E6DD",
-    borderRadius: 16,
+    borderColor: "#DCE6D8",
+    borderRadius: 14,
   },
+
+  descriptionPanel: {
+    flex: 1.4,
+    borderLeftWidth: 4,
+    borderLeftColor: GREEN,
+  },
+
+  infoPanel: {
+    flex: 1,
+    backgroundColor: "#FDFEFD",
+  },
+
   sectionTitle: {
-    color: INK,
-    fontSize: 21,
+    color: DARK_GREEN,
+    fontSize: 19,
     fontWeight: "800",
-    marginBottom: 18,
+    marginBottom: 12,
   },
+
   description: {
-    color: "#435044",
-    fontSize: 15,
-    lineHeight: 25,
+    color: "#425246",
+    fontSize: 14,
+    lineHeight: 23,
   },
+
+  // --------------------------------------------------
+  // Event Information
+  // --------------------------------------------------
+
   infoRow: {
     flexDirection: "row",
-    paddingVertical: 15,
+    alignItems: "center",
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#EDF0EA",
+    borderBottomColor: "#E8EEE5",
   },
+
   lastInfoRow: {
     borderBottomWidth: 0,
   },
-  infoValue: {
-    color: INK,
-    fontSize: 15,
-    fontWeight: "600",
-    lineHeight: 22,
-    marginTop: 5,
+
+  infoIcon: {
+    marginRight: 12,
   },
+
+  infoContent: {
+    flex: 1,
+  },
+
+  infoLabel: {
+    color: "#638060",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  infoValue: {
+    color: "#263C2C",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+    marginTop: 2,
+  },
+
+  // --------------------------------------------------
+  // Loading and Errors
+  // --------------------------------------------------
+
+  loading: {
+    marginTop: 48,
+  },
+
   error: {
     color: "#B42318",
     fontSize: 14,
     marginVertical: 12,
   },
+
   message: {
     color: "#63715F",
     textAlign: "center",
     paddingVertical: 40,
   },
+
+  // ==================================================
+  // DELETE CONFIRMATION MODAL
+  // ==================================================
+
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(20,35,24,0.58)",
+    backgroundColor: "rgba(20, 35, 24, 0.58)",
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
   },
+
   modalCard: {
     width: "100%",
     maxWidth: 440,
@@ -1229,6 +1479,7 @@ const styles = StyleSheet.create({
     borderColor: "#E0E6DC",
     alignItems: "center",
   },
+
   deleteIcon: {
     width: 66,
     height: 66,
@@ -1238,30 +1489,40 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 18,
   },
+
   modalTitle: {
     color: INK,
     fontSize: 26,
     fontWeight: "800",
     marginBottom: 12,
   },
+
   modalDescription: {
     color: "#63715F",
     fontSize: 15,
     lineHeight: 24,
     textAlign: "center",
   },
+
+  modalEventName: {
+    color: INK,
+    fontWeight: "700",
+  },
+
   warning: {
     color: "#B42318",
     fontSize: 14,
     fontWeight: "600",
     marginTop: 12,
   },
+
   modalButtons: {
     flexDirection: "row",
     gap: 12,
     width: "100%",
     marginTop: 26,
   },
+
   keepButton: {
     flex: 1,
     padding: 13,
@@ -1271,10 +1532,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F6F1",
     alignItems: "center",
   },
+
   keepText: {
     color: "#38573A",
     fontWeight: "700",
   },
+
   confirmButton: {
     flex: 1,
     padding: 13,
@@ -1282,15 +1545,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#B42318",
     alignItems: "center",
   },
+
   confirmText: {
     color: "#FFFFFF",
     fontWeight: "700",
   },
 
-    
+  // ==================================================
+  // LOGIN REQUIRED MODAL
+  // ==================================================
+
   loginModalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    backgroundColor: "rgba(20, 35, 24, 0.55)",
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
@@ -1353,5 +1620,28 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700",
+  },
+
+  // --------------------------------------------------
+  // Event Header Two-Column Layout
+  // --------------------------------------------------
+
+  eventHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    marginTop: 18,
+    marginBottom: 18,
+  },
+
+  eventHeaderLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  eventHeaderRight: {
+    width: 145,
+    flexShrink: 0,
   },
 });

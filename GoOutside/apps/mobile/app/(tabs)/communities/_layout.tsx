@@ -5,11 +5,11 @@ export default function CommunitiesLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "#FFFFFF" },
       }}
     >
       <Stack.Screen name="index" />
-      <Stack.Screen name="community_home" />
+      <Stack.Screen name="all_communities" />
+      <Stack.Screen name="my_communities" />
     </Stack>
   );
 }
