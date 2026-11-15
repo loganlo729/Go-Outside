@@ -1356,3 +1356,104 @@ input {
   font-size: 22px;
   font-weight: 700;
 }
+
+
+/* Subscription features */
+
+.subscription-features {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 20px;
+}
+
+.subscription-features > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.subscription-features > div:last-child {
+  border-bottom: none;
+}
+
+.subscription-features span {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.subscription-features strong {
+  color: #253b2c;
+  font-size: 14px;
+  text-align: right;
+  text-transform: capitalize;
+}
+
+/* Package selector */
+
+.subscription-selector {
+  margin-top: 20px;
+}
+
+.subscription-selector h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.subscription-selector > p {
+  margin-bottom: 18px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.subscription-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.subscription-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.subscription-option:hover {
+  background: #f9fafb;
+}
+
+.subscription-option.selected {
+  border-color: #315b3c;
+  background: #f0f7f1;
+}
+
+.subscription-option input {
+  accent-color: #315b3c;
+}
+
+.subscription-option > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subscription-option strong {
+  font-size: 15px;
+  color: #253b2c;
+}
+
+.subscription-option small {
+  font-size: 12px;
+  color: #6b7280;
+}

@@ -33,6 +33,21 @@ const ACCENTS = [
   "#F59E0B",
 ];
 
+type SubscriptionPackage = {
+  packageID: string;
+  packageName: string;
+  eventMonthPostCount: number;
+  serviceWeeklyPostCount: number;
+  featuredPosts: number;
+  aiAssistedCreation: boolean;
+  certifiedProfile: boolean;
+  communityCreationAccess: string;
+};
+
+type ActiveSubscription = {
+  packageID: string;
+};
+
 type ProfileForm = {
   fullName: string;
   email: string;
@@ -111,6 +126,15 @@ export default function ProfileScreen() {
   const [locationId, setLocationId] = useState<number | null>(null);
   const [originalStateCode, setOriginalStateCode] = useState("");
   const [originalLocationId, setOriginalLocationId] = useState<number | null>(null);
+
+  const [availablePackages, setAvailablePackages] = useState<SubscriptionPackage[]>([]);
+  const [activePackage, setActivePackage] = useState<SubscriptionPackage | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [subscriptionError, setSubscriptionError] = useState("");
+  const [changingPlan, setChangingPlan] = useState(false);
+  const [selectedPackageID, setSelectedPackageID] = useState("");
+  const [switchingPlan, setSwitchingPlan] = useState(false);
+
 
   useEffect(() => {
     let mounted = true;
@@ -245,6 +269,103 @@ export default function ProfileScreen() {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Separate from the profile fetch so subscription errors do not block profile editing.
+  useEffect(() => {
+    let cancelled = false;
+    const userID = user?.id;
+
+    if (!userID) {
+      setAvailablePackages([]);
+      setActivePackage(null);
+      setSelectedPackageID("");
+      setChangingPlan(false);
+      setSubscriptionError("");
+      setSubscriptionLoading(false);
+      return;
+    }
+
+    async function fetchSubscription() {
+      setSubscriptionLoading(true);
+      setSubscriptionError("");
+      try {
+        const [packagesResult, subscriptionResult] = await Promise.all([
+          supabase.from("Package").select(
+            "packageID, packageName, eventMonthPostCount, serviceWeeklyPostCount, featuredPosts, aiAssistedCreation, certifiedProfile, communityCreationAccess"
+          ).order("eventMonthPostCount", { ascending: true }),
+          supabase.from("UserPackage")
+            .select("packageID")
+            .eq("userID", userID!)
+            .eq("active", true)
+            .maybeSingle(),
+        ]);
+        if (packagesResult.error) throw packagesResult.error;
+        if (subscriptionResult.error) throw subscriptionResult.error;
+        if (cancelled) return;
+
+        const plans = (packagesResult.data ?? []) as SubscriptionPackage[];
+        const subscription = subscriptionResult.data as ActiveSubscription | null;
+        const current = plans.find((p) => p.packageID === subscription?.packageID) ?? null;
+        setAvailablePackages(plans);
+        setActivePackage(current);
+        setSelectedPackageID(current?.packageID ?? "");
+      } catch (err) {
+        if (!cancelled) {
+          setSubscriptionError(
+            err && typeof err === "object" && "message" in err
+              ? String(err.message)
+              : "Unable to load subscription information."
+          );
+        }
+      } finally {
+        if (!cancelled) setSubscriptionLoading(false);
+      }
+    }
+
+    void fetchSubscription();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  async function handleSwitchPackage() {
+    if (!user || switchingPlan || !selectedPackageID) return;
+    if (selectedPackageID === activePackage?.packageID) {
+      setChangingPlan(false);
+      return;
+    }
+
+    setSwitchingPlan(true);
+    setSubscriptionError("");
+    setSuccess("");
+    try {
+      const { error: switchError } = await supabase.rpc("switch_user_package", {
+        target_package_id: selectedPackageID,
+      });
+      if (switchError) throw switchError;
+
+      // Reload authoritative values rather than assuming the RPC changed the plan.
+      const { data: subscription, error: readError } = await supabase
+        .from("UserPackage")
+        .select("packageID")
+        .eq("userID", user.id)
+        .eq("active", true)
+        .single();
+      if (readError) throw readError;
+
+      const current = availablePackages.find((p) => p.packageID === subscription.packageID) ?? null;
+      setActivePackage(current);
+      setSelectedPackageID(current?.packageID ?? "");
+      setChangingPlan(false);
+      setSuccess("Your subscription plan has been updated.");
+    } catch (err) {
+      setSubscriptionError(
+        err && typeof err === "object" && "message" in err
+          ? String(err.message)
+          : "Unable to change subscription."
+      );
+    } finally {
+      setSwitchingPlan(false);
+    }
+  }
 
   function updateField(
     field: keyof ProfileForm,
@@ -677,42 +798,110 @@ export default function ProfileScreen() {
         </SettingsCard>
 
         {/* Subscription */}
-        <SettingsCard title="Subscription Plan">
-          <View style={styles.planBox}>
-            <View style={styles.between}>
-              <Text style={styles.strong}>
-                Account Plan
-              </Text>
-              <Text style={styles.muted}>
-                Not configured
-              </Text>
+        <SettingsCard
+          title="Subscription Plan"
+          description="View your current package, benefits, and subscription options"
+        >
+          {subscriptionError ? (
+            <Text style={styles.error}>{subscriptionError}</Text>
+          ) : null}
+
+          {subscriptionLoading ? (
+            <View style={styles.subscriptionLoadingRow}>
+              <ActivityIndicator size="small" color={accentColor} />
+              <Text style={styles.muted}>Loading subscription details...</Text>
             </View>
+          ) : activePackage ? (
+            <>
+              <View style={styles.planBox}>
+                <View style={styles.between}>
+                  <Text style={styles.strong}>{activePackage.packageName} Plan</Text>
+                  <View style={styles.currentBadge}>
+                    <Text style={styles.currentBadgeText}>Active</Text>
+                  </View>
+                </View>
+                <Text style={styles.smallText}>Your current GoOutside membership includes:</Text>
+                <SubscriptionFeature label="Event posts per month" value={String(activePackage.eventMonthPostCount)} />
+                <SubscriptionFeature label="Service posts per week" value={String(activePackage.serviceWeeklyPostCount)} />
+                <SubscriptionFeature label="Featured posts per month" value={String(activePackage.featuredPosts)} />
+                <SubscriptionFeature label="AI-assisted creation" value={activePackage.aiAssistedCreation ? "Included" : "Not included"} />
+                <SubscriptionFeature label="Certified profile" value={activePackage.certifiedProfile ? "Included" : "Not included"} />
+                <SubscriptionFeature label="Community creation" value={activePackage.communityCreationAccess} />
+              </View>
 
+              {!changingPlan ? (
+                <View style={styles.subscriptionActions}>
+                  <Pressable
+                    style={[styles.subscriptionButton, { backgroundColor: accentColor }]}
+                    onPress={() => setChangingPlan(true)}
+                  >
+                    <Text style={styles.primaryButtonText}>Change Plan</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.subscriptionSelector}>
+                  <Text style={styles.strong}>Choose a Package</Text>
+                  <Text style={styles.smallText}>
+                    This is a demonstration. No payment is required.
+                  </Text>
+
+                  {availablePackages.map((pkg) => {
+                    const selected = selectedPackageID === pkg.packageID;
+                    const isCurrent = activePackage.packageID === pkg.packageID;
+                    return (
+                      <Pressable
+                        key={pkg.packageID}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected, disabled: switchingPlan }}
+                        onPress={() => setSelectedPackageID(pkg.packageID)}
+                        disabled={switchingPlan}
+                        style={[styles.packageOption, selected && styles.packageOptionSelected]}
+                      >
+                        <View style={[styles.radioOuter, selected && { borderColor: accentColor }]}>
+                          {selected ? <View style={[styles.radioInner, { backgroundColor: accentColor }]} /> : null}
+                        </View>
+                        <View style={styles.flex}>
+                          <Text style={styles.strong}>{pkg.packageName}</Text>
+                          <Text style={styles.smallText}>
+                            {pkg.eventMonthPostCount} events/month · {pkg.featuredPosts} featured/month
+                          </Text>
+                        </View>
+                        {isCurrent ? <Text style={styles.currentBadgeText}>Current</Text> : null}
+                      </Pressable>
+                    );
+                  })}
+
+                  <View style={styles.subscriptionActions}>
+                    <Pressable
+                      style={[styles.subscriptionButton, { backgroundColor: accentColor },
+                        (switchingPlan || selectedPackageID === activePackage.packageID) && styles.disabled]}
+                      disabled={switchingPlan || !selectedPackageID || selectedPackageID === activePackage.packageID}
+                      onPress={() => void handleSwitchPackage()}
+                    >
+                      <Text style={styles.primaryButtonText}>
+                        {switchingPlan ? "Updating..." : "Confirm Plan"}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.subscriptionButton, styles.cancelPlanButton]}
+                      disabled={switchingPlan}
+                      onPress={() => {
+                        setChangingPlan(false);
+                        setSelectedPackageID(activePackage.packageID);
+                        setSubscriptionError("");
+                      }}
+                    >
+                      <Text style={styles.outlineButtonText}>Cancel</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </>
+          ) : (
             <Text style={styles.smallText}>
-              Subscription details will appear here
-              when billing is integrated.
+              No active subscription was found for your account.
             </Text>
-          </View>
-
-          <View style={styles.subscriptionActions}>
-            <ActionButton
-              title="Upgrade Plan"
-              disabled
-              accentColor={accentColor}
-            />
-            <ActionButton
-              title="Update Billing"
-              disabled
-              accentColor={accentColor}
-              outline
-            />
-            <ActionButton
-              title="Cancel Subscription"
-              disabled
-              accentColor={accentColor}
-              outline
-            />
-          </View>
+          )}
         </SettingsCard>
 
         {/* Theme */}
@@ -840,6 +1029,15 @@ export default function ProfileScreen() {
   );
 }
 
+function SubscriptionFeature({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.featureRow}>
+      <Text style={styles.featureLabel}>{label}</Text>
+      <Text style={styles.featureValue}>{value}</Text>
+    </View>
+  );
+}
+
 type ProfileFieldProps = {
   label: string;
   value: string;
@@ -869,44 +1067,6 @@ function ProfileField({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
       />
-    </View>
-  );
-}
-
-type ActionButtonProps = {
-  title: string;
-  accentColor: string;
-  disabled?: boolean;
-  outline?: boolean;
-};
-
-function ActionButton({
-  title,
-  accentColor,
-  disabled = false,
-  outline = false,
-}: ActionButtonProps) {
-  return (
-    <View
-      style={[
-        styles.subscriptionButton,
-        {
-          backgroundColor: outline
-            ? "#FFFFFF"
-            : accentColor,
-        },
-        disabled && styles.disabled,
-      ]}
-    >
-      <Text
-        style={{
-          color: outline ? "#172033" : "#FFFFFF",
-          fontSize: 13,
-          fontWeight: "700",
-        }}
-      >
-        {title}
-      </Text>
     </View>
   );
 }
@@ -1069,6 +1229,69 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
+  },
+  subscriptionLoadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 20,
+  },
+  featureRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  featureLabel: {
+    flex: 1,
+    color: "#64748B",
+    fontSize: 12,
+  },
+  featureValue: {
+    flexShrink: 1,
+    color: "#172033",
+    fontWeight: "700",
+    fontSize: 12,
+    textAlign: "right",
+    textTransform: "capitalize",
+  },
+  subscriptionSelector: {
+    marginTop: 18,
+    gap: 10,
+  },
+  packageOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    padding: 14,
+    backgroundColor: "#FFFFFF",
+  },
+  packageOptionSelected: {
+    borderColor: "#0D9488",
+    backgroundColor: "#F0FDF9",
+  },
+  radioOuter: {
+    height: 20,
+    width: 20,
+    borderWidth: 2,
+    borderColor: "#CBD5E1",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioInner: {
+    height: 10,
+    width: 10,
+    borderRadius: 5,
+  },
+  cancelPlanButton: {
+    backgroundColor: "#FFFFFF",
   },
   settingRow: {
     flexDirection: "row",

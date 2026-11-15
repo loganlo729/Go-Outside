@@ -17,6 +17,26 @@ const accentColors = [
   "#F59E0B",
 ];
 
+
+type Package = {
+  packageID: string;
+  packageName: string;
+  eventMonthPostCount: number;
+  serviceWeeklyPostCount: number;
+  featuredPosts: number;
+  aiAssistedCreation: boolean;
+  certifiedProfile: boolean;
+  communityCreationAccess: string;
+};
+
+type UserPackageRecord = {
+  packageID: string;
+  startDate: string;
+  endDate: string | null;
+  active: boolean;
+};
+
+
 function formatPhoneNumber(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 10);
 
@@ -62,6 +82,14 @@ export default function ProfilePage() {
   const [avatarPath, setAvatarPath] = useState<string | null>(null);
   const [bannerPath, setBannerPath] = useState<string | null>(null);
 
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [activePackage, setActivePackage] = useState<Package | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [changingPlan, setChangingPlan] = useState(false);
+  const [selectedPackageID, setSelectedPackageID] = useState("");
+  const [switchingPlan, setSwitchingPlan] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState("");
+
   const [original, setOriginal] = useState({
     fullName: "",
     email: "",
@@ -71,6 +99,70 @@ export default function ProfilePage() {
 
   const [darkMode, setDarkMode] = useState(false);
   const [accentColor, setAccentColor] = useState("#0D9488");
+
+  async function loadSubscription(userID: string) {
+    const supabase = getSupabaseClient();
+
+    setSubscriptionLoading(true);
+    setSubscriptionError("");
+
+    try {
+      const { data: packageRows, error: packagesError } =
+        await supabase
+          .from("Package")
+          .select(`
+            packageID,
+            packageName,
+            eventMonthPostCount,
+            serviceWeeklyPostCount,
+            featuredPosts,
+            aiAssistedCreation,
+            certifiedProfile,
+            communityCreationAccess
+          `)
+          .order("eventMonthPostCount", { ascending: true });
+
+      if (packagesError) throw packagesError;
+
+      const availablePackages = (packageRows ?? []) as Package[];
+      setPackages(availablePackages);
+
+      const { data: subscription, error: subscriptionError } =
+        await supabase
+          .from("UserPackage")
+          .select("packageID, startDate, endDate, active")
+          .eq("userID", userID)
+          .eq("active", true)
+          .maybeSingle();
+
+      if (subscriptionError) throw subscriptionError;
+
+      const currentSubscription =
+        subscription as UserPackageRecord | null;
+
+      const currentPackage =
+        availablePackages.find(
+          (pkg) => pkg.packageID === currentSubscription?.packageID
+        ) ?? null;
+
+      setActivePackage(currentPackage);
+      setSelectedPackageID(currentPackage?.packageID ?? "");
+    } catch (err) {
+      console.error("Subscription loading error:", err);
+
+      setSubscriptionError(
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" &&
+              err !== null &&
+              "message" in err
+            ? String(err.message)
+            : "Unable to load subscription information."
+      );
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -93,6 +185,7 @@ export default function ProfilePage() {
 
         // Authentication is successful.
         setUser(currentUser);
+        void loadSubscription(currentUser.id);
 
         // Set defaults using authenticated user information.
         const profile = {
@@ -267,6 +360,44 @@ export default function ProfilePage() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSwitchPackage() {
+    if (!user || !selectedPackageID || switchingPlan) return;
+
+    if (selectedPackageID === activePackage?.packageID) {
+      setChangingPlan(false);
+      return;
+    }
+
+    setSwitchingPlan(true);
+    setSubscriptionError("");
+    setSuccess("");
+
+    try {
+      const supabase = getSupabaseClient();
+
+      const { error } = await supabase.rpc("switch_user_package", {
+        target_package_id: selectedPackageID,
+      });
+
+      if (error) throw error;
+
+      await loadSubscription(user.id);
+
+      setChangingPlan(false);
+      setSuccess("Your subscription plan has been updated successfully.");
+    } catch (err) {
+      console.error("Package switch failed:", err);
+
+      setSubscriptionError(
+        err instanceof Error
+          ? err.message
+          : "Unable to change subscription."
+      );
+    } finally {
+      setSwitchingPlan(false);
     }
   }
 
@@ -580,52 +711,174 @@ export default function ProfilePage() {
           </section>
         </div>
 
-        <div className="account-column">
+        <div className="account-column">   
           {/* Subscription */}
           <section className="account-panel">
             <div className="account-panel-heading">
               <h2>Subscription Plan</h2>
-              <span className="account-badge neutral">
-                No plan connected
+
+              <span className="account-badge current">
+                {subscriptionLoading
+                  ? "Loading..."
+                  : activePackage?.packageName ?? "No Plan"}
               </span>
             </div>
 
-            <div className="account-plan">
-              <div className="account-plan-title">
-                <strong>Account Plan</strong>
-                <strong>Not configured</strong>
-              </div>
-              <p>
-                Subscription details will appear here
-                when billing is integrated.
+            <p className="account-description">
+              View your current package, available features,
+              and subscription options.
+            </p>
+
+            {subscriptionError && (
+              <p className="auth-error" role="alert">
+                {subscriptionError}
               </p>
-            </div>
+            )}
 
-            <div className="account-plan-actions">
-              <button
-                type="button"
-                className="account-btn primary"
-                disabled
-              >
-                Upgrade Plan
-              </button>
+            {subscriptionLoading ? (
+              <p>Loading subscription details...</p>
+            ) : activePackage ? (
+              <>
+                <div className="account-plan">
+                  <div className="account-plan-title">
+                    <strong>{activePackage.packageName} Plan</strong>
+                    <span className="account-badge current">
+                      Active
+                    </span>
+                  </div>
 
-              <button
-                type="button"
-                className="account-btn outline"
-                disabled
-              >
-                Update Billing
-              </button>
+                  <p>
+                    Your current GoOutside membership includes:
+                  </p>
 
-              <button
-                type="button"
-                className="account-btn danger-soft"
-                disabled
-              >
-                Cancel Subscription
-              </button>
-            </div>
+                  <div className="subscription-features">
+                    <div>
+                      <span>Event posts per month</span>
+                      <strong>{activePackage.eventMonthPostCount}</strong>
+                    </div>
+
+                    <div>
+                      <span>Service posts per week</span>
+                      <strong>{activePackage.serviceWeeklyPostCount}</strong>
+                    </div>
+
+                    <div>
+                      <span>Featured posts</span>
+                      <strong>{activePackage.featuredPosts}</strong>
+                    </div>
+
+                    <div>
+                      <span>AI-assisted creation</span>
+                      <strong>
+                        {activePackage.aiAssistedCreation ? "Included" : "Not included"}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Certified profile</span>
+                      <strong>
+                        {activePackage.certifiedProfile ? "Included" : "Not included"}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Community creation</span>
+                      <strong>
+                        {activePackage.communityCreationAccess}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {!changingPlan ? (
+                  <div className="account-plan-actions">
+                    <button
+                      type="button"
+                      className="account-btn primary"
+                      onClick={() => setChangingPlan(true)}
+                    >
+                      Change Plan
+                    </button>
+                  </div>
+                ) : (
+                  <div className="subscription-selector">
+                    <h3>Choose a Package</h3>
+                    <p>
+                      Select a package to update your membership.
+                      No payment is required for this demonstration.
+                    </p>
+
+                    <div className="subscription-options">
+                      {packages.map((pkg) => (
+                        <label
+                          key={pkg.packageID}
+                          className={`subscription-option ${
+                            selectedPackageID === pkg.packageID
+                              ? "selected"
+                              : ""
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="subscriptionPackage"
+                            value={pkg.packageID}
+                            checked={selectedPackageID === pkg.packageID}
+                            onChange={() => setSelectedPackageID(pkg.packageID)}
+                          />
+
+                          <div>
+                            <strong>{pkg.packageName}</strong>
+                            <small>
+                              {pkg.eventMonthPostCount} events/month
+                              {" • "}
+                              {pkg.featuredPosts} featured posts
+                            </small>
+                          </div>
+
+                          {pkg.packageID === activePackage.packageID && (
+                            <span className="account-badge current">
+                              Current
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="account-plan-actions">
+                      <button
+                        type="button"
+                        className="account-btn primary"
+                        onClick={handleSwitchPackage}
+                        disabled={
+                          switchingPlan ||
+                          !selectedPackageID ||
+                          selectedPackageID === activePackage.packageID
+                        }
+                      >
+                        {switchingPlan ? "Updating..." : "Confirm Plan"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="account-btn outline"
+                        disabled={switchingPlan}
+                        onClick={() => {
+                          setChangingPlan(false);
+                          setSelectedPackageID(activePackage.packageID);
+                          setSubscriptionError("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p>
+                No active subscription was found for your account.
+              </p>
+            )}
           </section>
 
           {/* Security */}
