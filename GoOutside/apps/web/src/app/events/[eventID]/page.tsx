@@ -41,9 +41,6 @@ import {
 // Component styles
 import styles from "./EventDetails.module.css";
 
-// React event type
-import type { MouseEvent } from "react";
-
 // --------------------------------------------------
 // Event Details Page
 // --------------------------------------------------
