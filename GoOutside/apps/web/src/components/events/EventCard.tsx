@@ -29,7 +29,6 @@ import {
 // Component styles
 import styles from "./EventDashboard.module.css";
 
-
 // --------------------------------------------------
 // Title Formatting
 // --------------------------------------------------
@@ -384,7 +383,7 @@ export default function EventCard({
                     ? styles.goingButton
                     : styles.rsvpButton
                 }
-                onClick={(clickEvent) => {
+                onClick={(clickEvent: React.MouseEvent<HTMLButtonElement>) => {
                   clickEvent.stopPropagation();
                   void handleRSVP();
                 }}

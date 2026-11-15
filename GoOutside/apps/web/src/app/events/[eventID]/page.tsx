@@ -927,7 +927,7 @@ export default function EventDetailsPage() {
                       href={`/events/create_event?edit=${encodeURIComponent(eventID)}`}
                       className={styles.editEventButton}
                       aria-disabled={!!managingEvent}
-                      onClick={(clickEvent) => {
+                      onClick={(clickEvent: React.MouseEvent<HTMLAnchorElement>) => {
                         if (managingEvent) {
                           clickEvent.preventDefault();
                         }
