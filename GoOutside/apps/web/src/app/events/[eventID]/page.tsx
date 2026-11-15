@@ -40,6 +40,9 @@ import {
 // Component styles
 import styles from "./EventDetails.module.css";
 
+// React event type
+import type { MouseEvent } from "react";
+
 // --------------------------------------------------
 // Event Details Page
 // --------------------------------------------------
@@ -872,7 +875,7 @@ export default function EventDetailsPage() {
           <button
             type="button"
             className={styles.backLink}
-            onClick={(clickEvent: React.MouseEvent<HTMLButtonElement>) => {
+            onClick={(clickEvent: MouseEvent<HTMLButtonElement>) => {
               // Return to the actual previous page.
               if (window.history.length > 1) {
                 router.back();
