@@ -49,14 +49,18 @@ input {
 }
 
 .navbar-inner {
-  width: min(1920px, calc(100% - 48px));
-  height: max(72px, 8vh); /* Set your desired fixed (or percentage) height */
+  width: 100%;
+  max-width: none;
+  min-height: 72px;
+  height: clamp(72px, 8vh, 96px);
+
   box-sizing: border-box;
   margin: 0 auto;
+  padding: 0 clamp(20px, 2.5vw, 64px);
 
   display: flex;
   align-items: center;
-  gap: 40px;
+  gap: clamp(20px, 2vw, 40px);
 }
 
 .logo {

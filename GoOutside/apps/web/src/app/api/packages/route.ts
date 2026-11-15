@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db, jsonError, failSafe } from '../../../lib/api-server';
+export const dynamic = "force-dynamic";
 export async function GET() {
   return failSafe(async () => {
     const { data, error } = await (await db()).from('Package').select('*').order('packageName');

@@ -41,6 +41,9 @@ import {
 // Component styles
 import styles from "./EventDetails.module.css";
 
+// React event type
+import type { MouseEvent } from "react";
+
 // --------------------------------------------------
 // Event Details Page
 // --------------------------------------------------
@@ -872,13 +875,14 @@ export default function EventDetailsPage() {
           <a
             href={backHref}
             className={styles.backLink}
-            onClick={(clickEvent) => {
-              clickEvent.preventDefault();
-
-              console.log("Current URL:", window.location.href);
-              console.log("Back destination:", backHref);
-
-              window.location.assign(backHref);
+            onClick={(clickEvent: MouseEvent<HTMLButtonElement>) => {
+              // Return to the actual previous page.
+              if (window.history.length > 1) {
+                router.back();
+              } else {
+                // Fallback for a directly opened event link.
+                router.push(backHref);
+              }
             }}
           >
             ← Back to Events

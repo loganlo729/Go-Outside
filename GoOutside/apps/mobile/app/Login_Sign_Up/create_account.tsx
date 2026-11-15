@@ -321,8 +321,8 @@ export default function SignUpScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    marginTop: 40,
-    marginBottom: 40,
+    marginTop: 50,
+    marginBottom: 50,
   },
   title: {
     fontSize: 36,

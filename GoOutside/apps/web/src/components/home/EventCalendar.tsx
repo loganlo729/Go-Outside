@@ -341,59 +341,62 @@ export default function EventCalendar() {
           const key = dateKey(date);
           const dayEvents = eventsByDate.get(key) ?? [];
 
-          const hasHosted = dayEvents.some(
-            (event) => event.isHost
-          );
-
-          const hasRSVP = dayEvents.some(
-            (event) => event.isRSVP
-          );
-
           const isSelected = selectedDate === key;
           const isToday = key === dateKey(new Date());
 
+          
           return (
-            <button
+            <div
               key={key}
-              type="button"
-              onClick={() => setSelectedDate(key)}
-              aria-pressed={isSelected}
-              className={`flex min-h-16 flex-col items-center rounded-lg border p-2 transition sm:min-h-24 ${
+              className={`flex min-h-24 min-w-0 flex-col rounded-lg border p-2 transition sm:min-h-28 ${
                 isSelected
                   ? "border-blue-500 bg-blue-50"
                   : "border-gray-200 hover:bg-gray-50"
               }`}
             >
-              <span
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-sm ${
-                  isToday
-                    ? "bg-gray-900 font-semibold text-white"
-                    : "text-gray-800"
-                }`}
+              {/* Day number */}
+              <button
+                type="button"
+                onClick={() => setSelectedDate(key)}
+                aria-pressed={isSelected}
+                className="mb-2 flex w-full justify-center"
               >
-                {day}
-              </span>
-
-              <div className="mt-2 flex flex-wrap justify-center gap-1">
-                {hasHosted && (
-                  <span className="h-2 w-2 rounded-full bg-blue-500" />
-                )}
-
-                {hasRSVP && (
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
-                )}
-              </div>
-
-              {dayEvents.length > 0 && (
-                <span className="mt-1 text-xs text-gray-500">
-                  {dayEvents.length}
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-full text-sm ${
+                    isToday
+                      ? "bg-gray-900 font-semibold text-white"
+                      : "text-gray-800"
+                  }`}
+                >
+                  {day}
                 </span>
-              )}
-            </button>
+              </button>
+
+              {/* Event rectangles */}
+              <div className="flex w-full min-w-0 flex-col gap-1">
+                {dayEvents.map((event) => (
+                  <button
+                    key={event.eventID}
+                    type="button"
+                    title={event.eventTitle}
+                    onClick={() => {
+                      setSelectedDate(key);
+                      router.push(`/events/${event.eventID}`);
+                    }}
+                    className={`w-full min-w-0 truncate rounded px-2 py-1 text-left text-xs font-medium transition hover:brightness-95 ${
+                      event.isHost
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-green-100 text-green-800"
+                    }`}
+                  >
+                    {event.eventTitle}
+                  </button>
+                ))}
+              </div>
+            </div>
           );
         })}
       </div>
-
       {/* Selected Day Events */}
       <div className="mt-6 border-t border-gray-200 pt-5">
         <h3 className="mb-3 text-lg font-semibold text-gray-900">

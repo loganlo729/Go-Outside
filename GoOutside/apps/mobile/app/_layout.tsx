@@ -56,11 +56,11 @@ export default function RootLayout() {
     if (loading) return;
 
     const group = segments[0];
-    const screen = segments[1];
+    const screen = segments.at(1);
 
     // Allow authentication callbacks and profile completion.
     if (
-      group === "auth" ||
+      group === "auth/callback" ||
       (group === "login_sign_up" &&
         screen === "complete-profile")
     ) {
@@ -118,7 +118,7 @@ export default function RootLayout() {
       />
 
       <Stack.Screen
-        name="auth"
+        name="auth/callback"
         options={{ headerShown: false }}
       />
     </Stack>

@@ -1553,7 +1553,7 @@ export default function CreateEventPage() {
               href={eventDetailsHref}
               className={styles.ghostButton}
               aria-disabled={saving}
-              onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+              onClick={(event: React.MouseEvent<HTMLAnchorElement>) => {
                 if (saving) {
                   event.preventDefault();
                 }

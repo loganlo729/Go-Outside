@@ -9,7 +9,7 @@ export default function TabsLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={String(color ?? "#000")} />
           ),
         }}
       />
@@ -19,7 +19,7 @@ export default function TabsLayout() {
         options={{
           title: "Events",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+            <Ionicons name="calendar-outline" size={size} color={String(color ?? "#000")} />
           ),
         }}
       />
@@ -29,7 +29,7 @@ export default function TabsLayout() {
         options={{
           title: "Communities",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
+            <Ionicons name="people-outline" size={size} color={String(color ?? "#000")} />
           ),
         }}
       />
@@ -39,7 +39,7 @@ export default function TabsLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle-outline" size={size} color={color} />
+            <Ionicons name="person-circle-outline" size={size} color={String(color ?? "#000")} />
           ),
         }}
       />

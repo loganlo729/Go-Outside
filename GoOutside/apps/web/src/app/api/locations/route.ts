@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, jsonError, safeLimit, failSafe } from '../../../lib/api-server';
+export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
  return failSafe(async () => {
   const u = new URL(req.url); const query = (u.searchParams.get('query') ?? '').trim();
