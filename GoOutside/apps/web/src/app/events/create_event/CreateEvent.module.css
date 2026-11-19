@@ -655,4 +655,107 @@
   cursor: not-allowed;
 }
 
+/* --------------------------------------------------
+   Responsive Layout  
+-------------------------------------------------- */
 
+/* Header */
+.topRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.topRow > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  margin: 12px 0;
+  font-size: clamp(30px, 3vw, 42px);
+  line-height: 1.15;
+}
+
+.backLink {
+  flex-shrink: 0;
+}
+
+/* Monthly allowance */
+.allowanceCard {
+  padding: 20px 24px;
+  margin-bottom: 32px;
+  border: 1px solid #dce7df;
+  border-radius: 14px;
+  background: #f7faf7;
+}
+
+.allowanceHeader,
+.allowanceStats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.allowanceHeader {
+  margin-bottom: 14px;
+}
+
+.allowanceStats {
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #637568;
+}
+
+.allowanceStats strong {
+  color: #244b32;
+  font-size: 20px;
+}
+
+.packageBadge {
+  background: #e3eee6;
+  color: #28563b;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.allowanceTrack {
+  height: 7px;
+  background: #e1e9e2;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.allowanceFill {
+  height: 100%;
+  background: #438b61;
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+.allowanceWarning {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #9c5a27;
+}
+
+@media (max-width: 640px) {
+  .topRow {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .allowanceCard {
+    padding: 16px;
+  }
+
+  .allowanceStats {
+    flex-wrap: wrap;
+  }
+}
