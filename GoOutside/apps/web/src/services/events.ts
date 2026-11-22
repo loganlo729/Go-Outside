@@ -14,7 +14,7 @@ import type {
 // --------------------------------------------------
 
 const fields =
-  "eventID,userID,categoryID,eventTitle,eventDescription,eventStartTime,eventEndTime,eventLocation,eventCost,eventImageURL,isFeatured,status";
+  "eventID,userID,categoryID,eventTitle,eventDescription,eventStartTime,eventEndTime,eventLocation,eventCost,eventImageURL,isFeatured,status, createdDate";
 
 // --------------------------------------------------
 // Supabase Client

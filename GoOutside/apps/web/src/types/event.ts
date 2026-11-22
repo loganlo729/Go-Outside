@@ -15,6 +15,7 @@ export type EventRecord = {
   eventImageURL: string | null;
   isFeatured: boolean;
   status: string;
+  createdDate: string;
 };
 
 // --------------------------------------------------

@@ -73,6 +73,60 @@ import { theme } from "../../../src/constants/theme";
 
 const green = theme.colors.primary;
 
+type MonthlyEventUsage = {
+  packageName: string;
+  used: number;
+  limit: number;
+    featuredUsed: number;
+    featuredLimit: number;
+  resetsAt: string;
+};
+
+async function getMonthlyEventUsage(userID: string): Promise<MonthlyEventUsage> {
+  const { data: subscription, error: subscriptionError } = await supabase
+    .from("UserPackage")
+    .select("packageID, Package(packageName, eventMonthPostCount, featuredPosts)")
+    .eq("userID", userID)
+    .eq("active", true)
+    .single();
+
+  if (subscriptionError) throw new Error(subscriptionError.message);
+
+  const packageData = Array.isArray(subscription.Package)
+    ? subscription.Package[0]
+    : subscription.Package;
+
+  if (!packageData || !Number.isInteger(packageData.eventMonthPostCount)) {
+    throw new Error("Unable to find your active package allowance.");
+  }
+
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+
+  const monthlyEvents = () => supabase
+    .from("Event")
+    .select("eventID", { count: "exact", head: true })
+    .eq("userID", userID)
+    .gte("createdDate", monthStart.toISOString())
+    .lt("createdDate", nextMonth.toISOString());
+  const [events, featuredEvents] = await Promise.all([
+    monthlyEvents(), monthlyEvents().eq("isFeatured", true),
+  ]);
+  if (events.error) throw new Error(events.error.message);
+  if (featuredEvents.error) throw new Error(featuredEvents.error.message);
+  if (events.count === null || featuredEvents.count === null) throw new Error("Unable to verify event allowance.");
+
+  return {
+    packageName: packageData.packageName,
+    used: events.count,
+      featuredUsed: featuredEvents.count,
+      featuredLimit: packageData.featuredPosts ?? 0,
+    limit: packageData.eventMonthPostCount,
+    resetsAt: nextMonth.toISOString(),
+  };
+}
+
 type PickerTarget =
   | "startDate"
   | "endDate"
@@ -207,6 +261,8 @@ export default function CreateEventScreen() {
 
   const [featured, setFeatured] =
     useState(false);
+  const [originalFeatured, setOriginalFeatured] = useState(false);
+  const [draftCreatedDate, setDraftCreatedDate] = useState<string | null>(null);
 
   // --------------------------------------------------
   // Photo State
@@ -268,6 +324,44 @@ export default function CreateEventScreen() {
     useState("");
 
   // --------------------------------------------------
+  // Monthly Event Allowance
+  // --------------------------------------------------
+
+  const [eventUsage, setEventUsage] = useState<MonthlyEventUsage | null>(null);
+  const [usageError, setUsageError] = useState("");
+  const [usageLoading, setUsageLoading] = useState(false);
+
+  const limitReached = eventUsage !== null && eventUsage.used >= eventUsage.limit;
+  const creationBlocked = usageLoading || !eventUsage || limitReached;
+  const nowForFeatured = new Date();
+  const featuredMonthStart = Date.UTC(nowForFeatured.getUTCFullYear(), nowForFeatured.getUTCMonth(), 1);
+  const featuredNextMonth = Date.UTC(nowForFeatured.getUTCFullYear(), nowForFeatured.getUTCMonth() + 1, 1);
+  const draftInCurrentMonth = !isEditMode || (draftCreatedDate !== null &&
+    Date.parse(draftCreatedDate) >= featuredMonthStart && Date.parse(draftCreatedDate) < featuredNextMonth);
+  const canFeature = originalFeatured || (draftInCurrentMonth && eventUsage !== null && eventUsage.featuredUsed < eventUsage.featuredLimit);
+  const featuredMessage = originalFeatured ? "This draft already has featured status."
+    : !draftInCurrentMonth ? "Only drafts created this month can be newly featured."
+    : !eventUsage ? "Unable to verify featured allowance."
+    : !canFeature ? "Monthly featured post limit reached."
+    : `${Math.max(0, eventUsage.featuredLimit - eventUsage.featuredUsed)} featured posts remaining`;
+
+
+  async function refreshEventUsage() {
+    setUsageLoading(true);
+    setUsageError("");
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) throw new Error(error?.message || "Sign in to continue.");
+      setEventUsage(await getMonthlyEventUsage(user.id));
+    } catch (error) {
+      setEventUsage(null);
+      setUsageError(error instanceof Error ? error.message : "Unable to load your event allowance.");
+    } finally {
+      setUsageLoading(false);
+    }
+  }
+
+  // --------------------------------------------------
   // Load User / Categories / Existing Draft
   // --------------------------------------------------
 
@@ -278,6 +372,11 @@ export default function CreateEventScreen() {
       setLoading(true);
       setError("");
       setEditLoaded(false);
+      setOriginalFeatured(false);
+      setDraftCreatedDate(null);
+      setFeatured(false);
+      setEventUsage(null);
+      setUsageError("");
 
       try {
         const {
@@ -295,6 +394,20 @@ export default function CreateEventScreen() {
 
         if (!user) {
           return;
+        }
+
+        setEventUsage(null);
+        setUsageError("");
+
+        {
+          try {
+            const usage = await getMonthlyEventUsage(user.id);
+            if (!active) return;
+            setEventUsage(usage);
+          } catch (error) {
+            if (!active) return;
+            setUsageError(error instanceof Error ? error.message : "Unable to load your event allowance.");
+          }
         }
 
         const result =
@@ -367,6 +480,8 @@ export default function CreateEventScreen() {
           setFeatured(
             Boolean(existing.isFeatured)
           );
+          setOriginalFeatured(Boolean(existing.isFeatured));
+          setDraftCreatedDate(existing.createdDate);
 
           // Existing stored photo.
 
@@ -687,6 +802,19 @@ export default function CreateEventScreen() {
 
     setError("");
 
+    if (featured && !canFeature) {
+      setError(featuredMessage);
+      return;
+    }
+
+
+    if (!isEditMode && creationBlocked) {
+      setError(limitReached
+        ? "You have reached your monthly event limit."
+        : "Unable to verify your monthly event allowance.");
+      return;
+    }
+
     const cleanTitle = title.trim();
     const cleanDescription =
       description.trim();
@@ -990,6 +1118,47 @@ export default function CreateEventScreen() {
             : "Save a draft or publish when ready."}
         </Text>
 
+        {!isEditMode && (
+          <View style={styles.allowanceCard}>
+            <View style={styles.allowanceHeader}>
+              <Text style={styles.allowanceTitle}>Monthly Event Allowance</Text>
+              {eventUsage && <Text style={styles.packageBadge}>{eventUsage.packageName}</Text>}
+            </View>
+
+            {usageLoading ? (
+              <ActivityIndicator color={green} />
+            ) : eventUsage ? (
+              <>
+                <View style={styles.allowanceStats}>
+                  <Text style={styles.allowanceDetail}>
+                    <Text style={styles.allowanceCount}>{eventUsage.used} / {eventUsage.limit}</Text> events used
+                  </Text>
+                  <Text style={styles.allowanceDetail}>
+                    Resets {new Date(eventUsage.resetsAt).toLocaleDateString("en-US", {
+                      month: "short", day: "numeric", timeZone: "UTC",
+                    })} (UTC)
+                  </Text>
+                </View>
+                <View style={styles.allowanceTrack} accessible accessibilityLabel={`${eventUsage.used} of ${eventUsage.limit} events used`}>
+                  <View style={[styles.allowanceFill, {
+                    width: `${eventUsage.limit > 0 ? Math.min(100, 100 * eventUsage.used / eventUsage.limit) : 100}%` as `${number}%`,
+                  }]} />
+                </View>
+                {limitReached && (
+                  <Text style={styles.allowanceWarning}>
+                    You've reached your monthly limit. Upgrade your package or wait until next month to create more events.
+                  </Text>
+                )}
+              </>
+            ) : (
+              <Text style={styles.allowanceWarning}>{usageError || "Unable to verify your allowance."}</Text>
+            )}
+            <Pressable disabled={saving || usageLoading} onPress={() => void refreshEventUsage()}>
+              <Text style={styles.allowanceRetry}>Refresh allowance</Text>
+            </Pressable>
+          </View>
+        )}
+
         {/* Title */}
 
         <Text style={styles.label}>
@@ -1242,14 +1411,21 @@ export default function CreateEventScreen() {
         </Text>
 
         <View style={styles.featureBox}>
-          <Text style={styles.featureDescription}>
-            Mark this event as featured.
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.featureDescription}>Mark this event as featured.</Text>
+            {eventUsage && <Text style={styles.featureAllowance}>{eventUsage.featuredUsed} / {eventUsage.featuredLimit} featured posts used</Text>}
+            <Text style={styles.featureAllowance}>{featuredMessage}</Text>
+            {isEditMode && (
+              <Pressable disabled={saving || usageLoading} onPress={() => void refreshEventUsage()}>
+                <Text style={styles.allowanceRetry}>Refresh allowance</Text>
+              </Pressable>
+            )}
+          </View>
 
           <Switch
             value={featured}
             onValueChange={setFeatured}
-            disabled={saving}
+            disabled={saving || usageLoading || (!canFeature && !featured)}
             trackColor={{
               false: "#CDD3C9",
               true: green,
@@ -1418,9 +1594,10 @@ export default function CreateEventScreen() {
                 style={[
                   styles.draft,
                   styles.half,
+                  creationBlocked && styles.disabledSaveButton,
                 ]}
                 disabled={
-                  saving || !!photoToCrop
+                  saving || !!photoToCrop || creationBlocked
                 }
                 onPress={() =>
                   void save("drafted")
@@ -1437,9 +1614,10 @@ export default function CreateEventScreen() {
                 style={[
                   styles.primary,
                   styles.half,
+                  creationBlocked && styles.disabledSaveButton,
                 ]}
                 disabled={
-                  saving || !!photoToCrop
+                  saving || !!photoToCrop || creationBlocked
                 }
                 onPress={() =>
                   void save("publicActive")
@@ -1491,6 +1669,32 @@ export default function CreateEventScreen() {
 // --------------------------------------------------
 
 const styles = StyleSheet.create({
+  allowanceCard: {
+    backgroundColor: "#F7FAF7",
+    borderColor: "#DCE7DF",
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 20,
+  },
+  allowanceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 12,
+  },
+  allowanceTitle: { fontSize: 14, fontWeight: "700", color: "#1F2E22", flexShrink: 1 },
+  packageBadge: { backgroundColor: "#E3EEE6", color: "#28563B", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, fontSize: 12, fontWeight: "700" },
+  allowanceStats: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10 },
+  allowanceDetail: { color: "#637568", fontSize: 12 },
+  allowanceCount: { color: "#244B32", fontSize: 19, fontWeight: "700" },
+  allowanceTrack: { height: 7, borderRadius: 20, overflow: "hidden", backgroundColor: "#E1E9E2" },
+  allowanceFill: { height: "100%", borderRadius: 20, backgroundColor: "#438B61" },
+  allowanceWarning: { color: "#9C5A27", fontSize: 12, lineHeight: 18, marginTop: 10 },
+  allowanceRetry: { color: green, fontSize: 12, fontWeight: "700", marginTop: 12 },
+  disabledSaveButton: { opacity: 0.45 },
   screen: {
     flex: 1,
     backgroundColor: "#F6F7F3",
@@ -1616,8 +1820,8 @@ const styles = StyleSheet.create({
       gap: 12,
     },
 
+    featureAllowance: { fontSize: 12, fontWeight: "600", color: "#63715F", marginTop: 4 },
     featureDescription: {
-      flex: 1,
       color: "#63715F",
       fontSize: 14,
       lineHeight: 20,

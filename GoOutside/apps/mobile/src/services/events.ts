@@ -22,7 +22,7 @@ import { MAX_IMAGE_BYTES } from "../utils/eventValidation";
 // ==================================================
 
 const FIELDS =
-  "eventID,userID,categoryID,eventTitle,eventDescription,eventStartTime,eventEndTime,eventLocation,eventCost,eventImageURL,isFeatured,status";
+  "eventID,userID,categoryID,eventTitle,eventDescription,eventStartTime,eventEndTime,eventLocation,eventCost,eventImageURL,isFeatured,status, createdDate";
 
 // ==================================================
 // TYPES

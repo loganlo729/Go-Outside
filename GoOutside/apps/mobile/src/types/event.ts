@@ -11,6 +11,7 @@ export type EventRecord = {
   isFeatured: boolean; 
   status: string;
   hostName?: string | null;
+  createdDate: string;
 };
 
 export type CategoryRecord = { categoryID: string; categoryName: string };

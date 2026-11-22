@@ -1,24 +1,19 @@
 "use client";
-
 // React hooks
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
-  MouseEvent,
 } from "react";
-
 // React types
 import type { ChangeEvent } from "react";
-
 // Navigation
 import Link from "next/link";
 import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-
 // Event services
 import {
   createEvent,
@@ -29,112 +24,86 @@ import {
   EVENT_IMAGE_ACCEPT,
   validateEventImage,
 } from "../../../services/events";
-
 // Category type
 import type {
   CategoryRecord,
 } from "../../../types/event";
-
 // Component styles
 import styles from "./CreateEvent.module.css";
-
 // Address autocomplete
 import AddressAutocomplete from "../../../components/events/AddressAutocomplete";
-
 // Image cropper
 import ImageCropper from "../../../components/common/ImageCropper";
-
 // --------------------------------------------------
 // Types
 // --------------------------------------------------
-
 type EventDateTime = {
   date: string;
   hour: string;
   minute: string;
   period: "AM" | "PM";
 };
-
 type DateTimeInputProps = {
   label: string;
   value: EventDateTime;
   onChange: (value: EventDateTime) => void;
 };
-
 // --------------------------------------------------
 // Form Limits
 // --------------------------------------------------
-
 const MAX_TITLE_LENGTH = 150;
 const MAX_DESCRIPTION_LENGTH = 2000;
 const MAX_EVENT_COST = 9999.99;
-
 // --------------------------------------------------
 // Date and Time Options
 // --------------------------------------------------
-
 const emptyDateTime = (): EventDateTime => ({
   date: "",
   hour: "12",
   minute: "00",
   period: "PM",
 });
-
 const hours = Array.from(
   { length: 12 },
   (_, index) => String(index + 1)
 );
-
 const minutes = Array.from(
   { length: 60 },
   (_, index) => String(index).padStart(2, "0")
 );
-
 // --------------------------------------------------
 // Get Today's Local Date
 // --------------------------------------------------
-
 function getTodayLocal(): string {
   const now = new Date();
-
   const year = now.getFullYear();
-
   const month = String(
     now.getMonth() + 1
   ).padStart(2, "0");
-
   const day = String(
     now.getDate()
   ).padStart(2, "0");
-
   return `${year}-${month}-${day}`;
 }
-
 // --------------------------------------------------
 // Convert Local Date/Time to ISO
 // --------------------------------------------------
-
 function toISOString(
   value: EventDateTime
 ): string | null {
   if (!value.date) {
     return null;
   }
-
   let hour = Number(value.hour);
-
   if (value.period === "PM" && hour !== 12) {
     hour += 12;
   }
-
   if (value.period === "AM" && hour === 12) {
     hour = 0;
   }
-
   const [year, month, day] = value.date
     .split("-")
     .map(Number);
-
   const date = new Date(
     year,
     month - 1,
@@ -143,7 +112,6 @@ function toISOString(
     Number(value.minute),
     0
   );
-
   if (
     Number.isNaN(date.getTime()) ||
     date.getFullYear() !== year ||
@@ -154,39 +122,29 @@ function toISOString(
   ) {
     return null;
   }
-
   return date.toISOString();
 }
-
 // --------------------------------------------------
 // Convert ISO Date/Time to Form Values
 // --------------------------------------------------
-
 function fromISOString(
   iso: string | null
 ): EventDateTime {
   if (!iso) {
     return emptyDateTime();
   }
-
   const value = new Date(iso);
-
   if (Number.isNaN(value.getTime())) {
     return emptyDateTime();
   }
-
   const year = value.getFullYear();
-
   const month = String(
     value.getMonth() + 1
   ).padStart(2, "0");
-
   const day = String(
     value.getDate()
   ).padStart(2, "0");
-
   const hour24 = value.getHours();
-
   return {
     date: `${year}-${month}-${day}`,
     hour: String((hour24 % 12) || 12),
@@ -196,11 +154,9 @@ function fromISOString(
     period: hour24 >= 12 ? "PM" : "AM",
   };
 }
-
 // --------------------------------------------------
 // Date Field
 // --------------------------------------------------
-
 function EventDateField({
   label,
   value,
@@ -213,7 +169,6 @@ function EventDateField({
     <div className={styles.field}>
       <label className={styles.label}>
         {label}
-
         <input
           type="date"
           aria-label={label}
@@ -231,11 +186,9 @@ function EventDateField({
     </div>
   );
 }
-
 // --------------------------------------------------
 // Time Field
 // --------------------------------------------------
-
 function EventTimeField({
   label,
   value,
@@ -246,10 +199,8 @@ function EventTimeField({
       <label className={styles.label}>
         {label}
       </label>
-
       <div className={styles.timeRow}>
         {/* Hour */}
-
         <select
           aria-label={`${label} hour`}
           className={styles.select}
@@ -267,13 +218,10 @@ function EventTimeField({
             </option>
           ))}
         </select>
-
         <span className={styles.timeSeparator}>
           :
         </span>
-
         {/* Minute */}
-
         <select
           aria-label={`${label} minute`}
           className={styles.select}
@@ -291,9 +239,7 @@ function EventTimeField({
             </option>
           ))}
         </select>
-
         {/* AM / PM */}
-
         <select
           aria-label={`${label} AM or PM`}
           className={styles.select}
@@ -314,283 +260,227 @@ function EventTimeField({
     </div>
   );
 }
-
 // --------------------------------------------------
 // Create / Edit Event Page
 // --------------------------------------------------
-
 export default function CreateEventPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
   // Which Dashboard page the user came from, to return to after saving or canceling
   const from =
   searchParams.get("from") === "all_events"
     ? "all_events"
     : "my_events";
-
   // --------------------------------------------------
   // Create / Edit Mode
   // --------------------------------------------------
-
   const editEventID = searchParams.get("edit");
-
   const isEditMode = Boolean(editEventID);
-
   const eventDetailsHref = editEventID
   ? `/events/${encodeURIComponent(editEventID)}?from=${from}`
   : "/events/my_events";
-
   // --------------------------------------------------
   // Event Fields
   // --------------------------------------------------
-
   const [title, setTitle] = useState("");
   const [categoryID, setCategoryID] = useState("");
   const [description, setDescription] = useState("");
-
   const [startTime, setStartTime] =
     useState<EventDateTime>(emptyDateTime);
-
   const [endTime, setEndTime] =
     useState<EventDateTime>(emptyDateTime);
-
   const [location, setLocation] = useState("");
   const [cost, setCost] = useState("0");
-
   const [isFeatured, setIsFeatured] =
     useState(false);
-
+  const [originalFeatured, setOriginalFeatured] = useState(false);
+  const [draftCreatedDate, setDraftCreatedDate] = useState<string | null>(null);
   // --------------------------------------------------
   // Automatically Populate End Date
   // --------------------------------------------------
-
   function handleStartDateChange(
     value: EventDateTime
   ) {
     setStartTime(value);
-
     // Match the end date to the selected start date.
     // Users can change the end date independently.
-
     setEndTime((previous) => ({
       ...previous,
       date: value.date,
     }));
   }
-
   // --------------------------------------------------
   // Photo State
   // --------------------------------------------------
-
   // Final cropped photo for a new upload.
   const [photo, setPhoto] = useState<File | null>(
     null
   );
-
   // Original local image for recropping.
   const [originalPhoto, setOriginalPhoto] =
     useState<File | null>(null);
-
   // Image currently being cropped.
   const [photoToCrop, setPhotoToCrop] =
     useState<File | null>(null);
-
   // Existing image stored in Supabase.
   const [existingImageURL, setExistingImageURL] =
     useState<string | null>(null);
-
   // Whether the existing image should be removed.
   const [
     removeExistingImage,
     setRemoveExistingImage,
   ] = useState(false);
-
   const [photoPreview, setPhotoPreview] =
     useState<string | null>(null);
-
   const photoInputRef =
     useRef<HTMLInputElement>(null);
-
   // --------------------------------------------------
   // Generate Photo Preview
   // --------------------------------------------------
-
   useEffect(() => {
     if (!photo) {
       setPhotoPreview(null);
       return;
     }
-
     const previewURL = URL.createObjectURL(photo);
-
     setPhotoPreview(previewURL);
-
     return () => {
       URL.revokeObjectURL(previewURL);
     };
   }, [photo]);
-
   // --------------------------------------------------
   // Displayed Photo
   // --------------------------------------------------
-
   const displayedPhotoURL =
     photoPreview ??
     (removeExistingImage
       ? null
       : existingImageURL);
-
   const hasEventPhoto = Boolean(
     photo || displayedPhotoURL
   );
-
   // --------------------------------------------------
   // Select Photo
   // --------------------------------------------------
-
   function handlePhotoChange(
     event: ChangeEvent<HTMLInputElement>
   ) {
     const file = event.target.files?.[0];
-
     if (!file) {
       return;
     }
-
     const validationError =
       validateEventImage(file);
-
     if (validationError) {
       setError(validationError);
       event.target.value = "";
       return;
     }
-
     setError("");
-
     // Open cropper without changing accepted photo.
     setPhotoToCrop(file);
   }
-
   // --------------------------------------------------
   // Apply Cropped Photo
   // --------------------------------------------------
-
   function handleApplyCrop(croppedFile: File) {
     if (!photoToCrop) {
       return;
     }
-
     const validationError =
       validateEventImage(croppedFile);
-
     if (validationError) {
       setError(validationError);
       return;
     }
-
     setPhoto(croppedFile);
     setOriginalPhoto(photoToCrop);
     setPhotoToCrop(null);
-
     // The new photo replaces any pending removal.
     setRemoveExistingImage(false);
-
     setError("");
   }
-
   // --------------------------------------------------
   // Reopen Image Cropper
   // --------------------------------------------------
-
   function handleRecropPhoto() {
     if (!originalPhoto || saving) {
       return;
     }
-
     setError("");
     setPhotoToCrop(originalPhoto);
   }
-
   // --------------------------------------------------
   // Cancel Cropping
   // --------------------------------------------------
-
   function handleCancelCrop() {
     setPhotoToCrop(null);
-
     if (photoInputRef.current) {
       photoInputRef.current.value = "";
     }
   }
-
   // --------------------------------------------------
   // Remove Photo
   // --------------------------------------------------
-
   function handleRemovePhoto() {
     if (saving) {
       return;
     }
-
     setPhoto(null);
     setOriginalPhoto(null);
     setPhotoPreview(null);
     setPhotoToCrop(null);
-
     if (isEditMode) {
       setRemoveExistingImage(true);
     }
-
     if (photoInputRef.current) {
       photoInputRef.current.value = "";
     }
   }
-
   // --------------------------------------------------
   // UI State
   // --------------------------------------------------
-
   const [categories, setCategories] =
     useState<CategoryRecord[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState("");
   const [categoryError, setCategoryError] =
     useState("");
-
   const [signedIn, setSignedIn] = useState(false);
-
   // --------------------------------------------------
   // Event Usage State
   // --------------------------------------------------
-
   type MonthlyEventUsage = {
     packageName: string;
     used: number;
     limit: number;
+    featuredUsed: number;
+    featuredLimit: number;
   };
-
   const [eventUsage, setEventUsage] =
     useState<MonthlyEventUsage | null>(null);
-
   const [usageError, setUsageError] = useState("");
-
   const limitReached =
     !isEditMode &&
     eventUsage !== null &&
     eventUsage.used >= eventUsage.limit;
-
+  const nowForFeatured = new Date();
+  const featuredMonthStart = Date.UTC(nowForFeatured.getUTCFullYear(), nowForFeatured.getUTCMonth(), 1);
+  const featuredNextMonth = Date.UTC(nowForFeatured.getUTCFullYear(), nowForFeatured.getUTCMonth() + 1, 1);
+  const draftInCurrentMonth = !isEditMode || (draftCreatedDate !== null &&
+    Date.parse(draftCreatedDate) >= featuredMonthStart && Date.parse(draftCreatedDate) < featuredNextMonth);
+  const canFeature = originalFeatured || (draftInCurrentMonth && eventUsage !== null && eventUsage.featuredUsed < eventUsage.featuredLimit);
+  const featuredMessage = originalFeatured ? "This draft already has featured status."
+    : !draftInCurrentMonth ? "Only drafts created this month can be newly featured."
+    : !eventUsage ? "Unable to verify featured allowance."
+    : !canFeature ? "Monthly featured post limit reached."
+    : `${Math.max(0, eventUsage.featuredLimit - eventUsage.featuredUsed)} featured posts remaining`;
   // Tracks whether a requested draft was loaded.
   const [editLoaded, setEditLoaded] =
     useState(false);
-
   const loadEventUsage = useCallback(async (userID: string) => {
     const client = eventClient();
-
     // Retrieve the active subscription.
     const { data: subscription, error: subscriptionError } =
       await client
@@ -599,85 +489,77 @@ export default function CreateEventPage() {
           packageID,
           Package (
             packageName,
-            eventMonthPostCount
+            eventMonthPostCount,
+            featuredPosts
           )
         `)
         .eq("userID", userID)
         .eq("active", true)
         .single();
-
     if (subscriptionError) throw subscriptionError;
-
     const packageData = Array.isArray(subscription.Package)
       ? subscription.Package[0]
       : subscription.Package;
-
     if (!packageData) {
       throw new Error("Unable to find your active package.");
     }
-
     // Match the UTC calendar month used by the database trigger.
     const now = new Date();
-
     const monthStart = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
     );
-
     const nextMonth = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
     );
-
-    const { count, error: countError } = await client
+    const monthlyEvents = () => client
       .from("Event")
       .select("eventID", { count: "exact", head: true })
       .eq("userID", userID)
       .gte("createdDate", monthStart.toISOString())
       .lt("createdDate", nextMonth.toISOString());
-
-    if (countError) throw countError;
+    const [events, featuredEvents] = await Promise.all([
+      monthlyEvents(), monthlyEvents().eq("isFeatured", true),
+    ]);
+    if (events.error) throw new Error(events.error.message);
+    if (featuredEvents.error) throw new Error(featuredEvents.error.message);
+    if (events.count === null || featuredEvents.count === null) throw new Error("Unable to verify event allowance.");
 
     setEventUsage({
       packageName: packageData.packageName,
-      used: count ?? 0,
+      used: events.count,
+      featuredUsed: featuredEvents.count,
+      featuredLimit: packageData.featuredPosts ?? 0,
       limit: packageData.eventMonthPostCount,
     });
   }, []);
-
   // --------------------------------------------------
   // Load User, Categories, and Existing Draft
   // --------------------------------------------------
-
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     setCategoryError("");
     setEditLoaded(false);
-
+    setOriginalFeatured(false);
+    setDraftCreatedDate(null);
     try {
       const client = eventClient();
-
       const {
         data: { user },
         error: authError,
       } = await client.auth.getUser();
-
       if (authError) {
         throw authError;
       }
-
-      // Event usage is only relevant for new events, not editing existing drafts.
+      // Featured allowance is also relevant when editing existing drafts.
       // --------------------------------------------------
-
       setSignedIn(!!user);
-
       if (!user) {
         setCategories([]);
         setEventUsage(null);
         return;
       }
-
       setUsageError("");
-
       try {
         await loadEventUsage(user.id);
       } catch (usageLoadError) {
@@ -688,11 +570,9 @@ export default function CreateEventPage() {
             : "Unable to load your event allowance."
         );
       }
-
       // --------------------------------------------------
       // Load Categories
       // --------------------------------------------------
-
       try {
         const result = await getEventCategories();
         setCategories(result);
@@ -703,86 +583,67 @@ export default function CreateEventPage() {
             : "Unable to load categories."
         );
       }
-
       // --------------------------------------------------
       // Load Existing Draft
       // --------------------------------------------------
-
       if (editEventID) {
         const existingEvent = await getEventByID(
           editEventID
         );
-
         if (!existingEvent) {
           throw new Error("Event not found.");
         }
-
         if (existingEvent.userID !== user.id) {
           throw new Error(
             "You do not have permission to edit this event."
           );
         }
-
         if (existingEvent.status !== "drafted") {
           throw new Error(
             "Only draft events can be edited."
           );
         }
-
         // --------------------------------------------------
         // Prepopulate Fields
         // --------------------------------------------------
-
         setTitle(
           existingEvent.eventTitle ?? ""
         );
-
         setCategoryID(
           existingEvent.categoryID ?? ""
         );
-
         setDescription(
           existingEvent.eventDescription ?? ""
         );
-
         setStartTime(
           fromISOString(
             existingEvent.eventStartTime
           )
         );
-
         setEndTime(
           fromISOString(
             existingEvent.eventEndTime
           )
         );
-
         setLocation(
           existingEvent.eventLocation ?? ""
         );
-
         setCost(
           String(existingEvent.eventCost ?? 0)
         );
-
-        setIsFeatured(
-          existingEvent.isFeatured ?? false
-        );
-
+        setIsFeatured(Boolean(existingEvent.isFeatured));
+        setOriginalFeatured(Boolean(existingEvent.isFeatured));
+        setDraftCreatedDate(existingEvent.createdDate ?? null);
         // --------------------------------------------------
         // Prepopulate Existing Image
         // --------------------------------------------------
-
         setExistingImageURL(
           existingEvent.eventImageURL ?? null
         );
-
         setRemoveExistingImage(false);
-
         setPhoto(null);
         setOriginalPhoto(null);
         setPhotoToCrop(null);
-
         setEditLoaded(true);
       }
     } catch (loadError) {
@@ -795,19 +656,15 @@ export default function CreateEventPage() {
       setLoading(false);
     }
   }, [editEventID, loadEventUsage]);
-
   // --------------------------------------------------
   // Initialize Form
   // --------------------------------------------------
-
   useEffect(() => {
     void load();
   }, [load]);
-
   // --------------------------------------------------
   // Save Draft, Publish, or Update
   // --------------------------------------------------
-
   async function handleSave(
     action: "drafted" | "publicActive"
   ) {
@@ -819,27 +676,24 @@ export default function CreateEventPage() {
     ) {
       return;
     }
-
     setError("");
-
+    if (isFeatured && !canFeature) {
+      setError(featuredMessage);
+      return;
+    }
     const cleanTitle = title.trim();
     const cleanDescription = description.trim();
     const cleanLocation = location.trim();
-
     const startISO = toISOString(startTime);
     const endISO = toISOString(endTime);
-
     const costText =
       cost.trim() === ""
         ? "0"
         : cost.trim();
-
     const parsedCost = Number(costText);
-
     // --------------------------------------------------
     // Cost Validation
     // --------------------------------------------------
-
     if (
       !Number.isFinite(parsedCost) ||
       parsedCost < 0 ||
@@ -851,18 +705,15 @@ export default function CreateEventPage() {
       );
       return;
     }
-
     // --------------------------------------------------
     // Title and Description Validation
     // --------------------------------------------------
-
     if (cleanTitle.length > MAX_TITLE_LENGTH) {
       setError(
         `Event title cannot exceed ${MAX_TITLE_LENGTH} characters.`
       );
       return;
     }
-
     if (
       description.length >
       MAX_DESCRIPTION_LENGTH
@@ -872,13 +723,10 @@ export default function CreateEventPage() {
       );
       return;
     }
-
     // --------------------------------------------------
     // Date Validation
     // --------------------------------------------------
-
     const today = getTodayLocal();
-
     if (
       (startTime.date &&
         startTime.date < today) ||
@@ -890,7 +738,6 @@ export default function CreateEventPage() {
       );
       return;
     }
-
     if (
       startTime.date &&
       endTime.date &&
@@ -901,7 +748,6 @@ export default function CreateEventPage() {
       );
       return;
     }
-
     if (
       (startTime.date && !startISO) ||
       (endTime.date && !endISO)
@@ -911,7 +757,6 @@ export default function CreateEventPage() {
       );
       return;
     }
-
     if (
       startISO &&
       endISO &&
@@ -922,38 +767,31 @@ export default function CreateEventPage() {
       );
       return;
     }
-
     // --------------------------------------------------
     // Photo Validation
     // --------------------------------------------------
-
     if (photo) {
       const photoError =
         validateEventImage(photo);
-
       if (photoError) {
         setError(photoError);
         return;
       }
     }
-
     // --------------------------------------------------
     // Publish Validation
     // --------------------------------------------------
-
     if (action === "publicActive") {
       if (!cleanTitle) {
         setError("Event title is required.");
         return;
       }
-
       if (!categoryID) {
         setError(
           "Please select an event category."
         );
         return;
       }
-
       if (
         !categories.some(
           (category) =>
@@ -965,21 +803,18 @@ export default function CreateEventPage() {
         );
         return;
       }
-
       if (!cleanDescription) {
         setError(
           "Event description is required."
         );
         return;
       }
-
       if (!startISO || !endISO) {
         setError(
           "Start and end dates/times are required and must be valid."
         );
         return;
       }
-
       if (
         new Date(startISO).getTime() <= Date.now()
       ) {
@@ -988,7 +823,6 @@ export default function CreateEventPage() {
         );
         return;
       }
-
       if (
         new Date(endISO) <= new Date(startISO)
       ) {
@@ -997,21 +831,18 @@ export default function CreateEventPage() {
         );
         return;
       }
-
       if (!cleanLocation) {
         setError(
           "Event location is required."
         );
         return;
       }
-
       if (cost.trim() === "") {
         setError(
           "Event cost is required. Enter 0 for free."
         );
         return;
       }
-
       if (!hasEventPhoto) {
         setError(
           "Please upload an event photo before publishing."
@@ -1019,45 +850,35 @@ export default function CreateEventPage() {
         return;
       }
     }
-
     // --------------------------------------------------
     // Event Data
     // --------------------------------------------------
-
     const eventData = {
       eventTitle: cleanTitle || null,
       categoryID: categoryID || null,
       eventDescription:
         cleanDescription || null,
-
       eventStartTime: startISO,
       eventEndTime: endISO,
-
       eventLocation: cleanLocation || null,
       eventCost: parsedCost,
-
       isFeatured,
       status: action,
     };
-
     // --------------------------------------------------
     // Save to Supabase
     // --------------------------------------------------
-
     setSaving(true);
-
     try {
       if (editEventID) {
         // --------------------------------------------------
         // Update Existing Draft
         // --------------------------------------------------
-
         if (action !== "drafted") {
           throw new Error(
             "Save your changes before publishing from the event details page."
           );
         }
-
         await updateEvent(
           editEventID,
           {
@@ -1069,7 +890,6 @@ export default function CreateEventPage() {
             removeExistingImage,
           }
         );
-
         // Return to the updated event.
         router.replace(eventDetailsHref);
         router.refresh();
@@ -1077,9 +897,7 @@ export default function CreateEventPage() {
         // --------------------------------------------------
         // Create New Event
         // --------------------------------------------------
-
         await createEvent(eventData, photo);
-
         router.replace("/events/my_events");
         router.refresh();
       }
@@ -1093,11 +911,9 @@ export default function CreateEventPage() {
       setSaving(false);
     }
   }
-
   // --------------------------------------------------
   // Loading State
   // --------------------------------------------------
-
   if (loading) {
     return (
       <main className={styles.page}>
@@ -1111,11 +927,9 @@ export default function CreateEventPage() {
       </main>
     );
   }
-
   // --------------------------------------------------
   // Authentication State
   // --------------------------------------------------
-
   if (!signedIn) {
     return (
       <main className={styles.page}>
@@ -1123,17 +937,14 @@ export default function CreateEventPage() {
           <p className={styles.eyebrow}>
             EVENT MANAGEMENT
           </p>
-
           <h1 className={styles.title}>
             {isEditMode
               ? "Edit Event"
               : "Create an Event"}
           </h1>
-
           <p className={styles.subtitle}>
             You must be logged in to manage events.
           </p>
-
           {error && (
             <p
               role="alert"
@@ -1142,7 +953,6 @@ export default function CreateEventPage() {
               {error}
             </p>
           )}
-
           <Link
             href="/login"
             className={styles.primaryButton}
@@ -1153,11 +963,9 @@ export default function CreateEventPage() {
       </main>
     );
   }
-
   // --------------------------------------------------
   // Edit Loading / Permission Error
   // --------------------------------------------------
-
   if (isEditMode && !editLoaded) {
     return (
       <main className={styles.page}>
@@ -1165,11 +973,9 @@ export default function CreateEventPage() {
           <p className={styles.eyebrow}>
             EVENT MANAGEMENT
           </p>
-
           <h1 className={styles.title}>
             Unable to Edit Event
           </h1>
-
           <p
             role="alert"
             className={styles.error}
@@ -1177,7 +983,6 @@ export default function CreateEventPage() {
             {error ||
               "Unable to load the selected event."}
           </p>
-
           <Link
             href={isEditMode ? eventDetailsHref : "/events/my_events"}
             className={styles.backLink}
@@ -1188,11 +993,9 @@ export default function CreateEventPage() {
       </main>
     );
   }
-
   // --------------------------------------------------
   // Event Form
   // --------------------------------------------------
-
   return (
     <main className={styles.page}>
       <div className={styles.card}>
@@ -1202,23 +1005,19 @@ export default function CreateEventPage() {
         <div className={styles.topRow}>
           <div>
             <p className={styles.eyebrow}>EVENT MANAGEMENT</p>
-
             <h1 className={styles.title}>
               {isEditMode ? "Edit Event" : "Create an Event"}
             </h1>
-
             <p className={styles.subtitle}>
               {isEditMode
                 ? "Update your draft event details and save your changes."
                 : "Fill in your event details, then save a draft or publish your event."}
             </p>
           </div>
-
           <Link href={eventDetailsHref} className={styles.backLink}>
             {isEditMode ? "Back to Event" : "Back to My Events"}
           </Link>
         </div>
-
         {/* Allowance goes AFTER topRow */}
         {!isEditMode && eventUsage && (
           <div className={styles.allowanceCard}>
@@ -1228,13 +1027,11 @@ export default function CreateEventPage() {
                 {eventUsage.packageName}
               </span>
             </div>
-
             <div className={styles.allowanceStats}>
               <span>
                 <strong>{eventUsage.used} / {eventUsage.limit}</strong>
                 {" "}events used
               </span>
-
               <span>
                 Resets{" "}
                 {new Date(
@@ -1250,7 +1047,6 @@ export default function CreateEventPage() {
                 })}
               </span>
             </div>
-
             <div className={styles.allowanceTrack}>
               <div
                 className={styles.allowanceFill}
@@ -1266,7 +1062,6 @@ export default function CreateEventPage() {
                 }}
               />
             </div>
-
             {limitReached && (
               <p className={styles.allowanceWarning}>
                 You've reached your monthly limit. Upgrade your
@@ -1275,16 +1070,13 @@ export default function CreateEventPage() {
             )}
           </div>
         )}  
-
         {/* ----------------------------------------
             Event Form Fields
         ---------------------------------------- */}
-
         <div className={styles.form}>
           {/* ----------------------------------------
               Row 1: Event Title
           ---------------------------------------- */}
-
           <div className={styles.field}>
             <label
               htmlFor="eventTitle"
@@ -1292,7 +1084,6 @@ export default function CreateEventPage() {
             >
               Event Title
             </label>
-
             <input
               id="eventTitle"
               type="text"
@@ -1305,19 +1096,15 @@ export default function CreateEventPage() {
               }
               disabled={saving}
             />
-
             <p className={styles.helpText}>
               {title.length}/{MAX_TITLE_LENGTH} characters
             </p>
           </div>
-
           {/* ----------------------------------------
               Row 2: Category / Event Cost
           ---------------------------------------- */}
-
           <div className={styles.twoColumns}>
             {/* Category */}
-
             <div className={styles.field}>
               <label
                 htmlFor="category"
@@ -1325,7 +1112,6 @@ export default function CreateEventPage() {
               >
                 Category
               </label>
-
               <select
                 id="category"
                 className={styles.input}
@@ -1338,7 +1124,6 @@ export default function CreateEventPage() {
                 <option value="">
                   Select a category
                 </option>
-
                 {categories.map((category) => (
                   <option
                     key={category.categoryID}
@@ -1348,14 +1133,12 @@ export default function CreateEventPage() {
                   </option>
                 ))}
               </select>
-
               {categoryError && (
                 <p
                   role="alert"
                   className={styles.error}
                 >
                   {categoryError}{" "}
-
                   <button
                     type="button"
                     className={styles.retryButton}
@@ -1367,9 +1150,7 @@ export default function CreateEventPage() {
                 </p>
               )}
             </div>
-
             {/* Event Cost */}
-
             <div className={styles.field}>
               <label
                 htmlFor="eventCost"
@@ -1377,12 +1158,10 @@ export default function CreateEventPage() {
               >
                 Event Cost
               </label>
-
               <div className={styles.costField}>
                 <span className={styles.costSymbol}>
                   $
                 </span>
-
                 <input
                   id="eventCost"
                   type="text"
@@ -1395,7 +1174,6 @@ export default function CreateEventPage() {
                   onChange={(event) => {
                     const value =
                       event.target.value;
-
                     if (
                       /^\d*(\.\d{0,2})?$/.test(value)
                     ) {
@@ -1404,18 +1182,15 @@ export default function CreateEventPage() {
                   }}
                 />
               </div>
-
               <p className={styles.helpText}>
                 Enter 0 for a free event. Maximum:
                 $9,999.99.
               </p>
             </div>
           </div>
-
           {/* ----------------------------------------
               Row 3: Event Description
           ---------------------------------------- */}
-
           <div className={styles.field}>
             <label
               htmlFor="eventDescription"
@@ -1423,7 +1198,6 @@ export default function CreateEventPage() {
             >
               Event Description
             </label>
-
             <textarea
               id="eventDescription"
               className={styles.textarea}
@@ -1436,16 +1210,13 @@ export default function CreateEventPage() {
                 setDescription(event.target.value)
               }
             />
-
             <p className={styles.helpText}>
               {description.length}/{MAX_DESCRIPTION_LENGTH} characters
             </p>
           </div>
-
           {/* ----------------------------------------
               Row 4: Start Date / End Date
           ---------------------------------------- */}
-
           <div className={styles.twoColumns}>
             <EventDateField
               label="Event Start Date"
@@ -1453,7 +1224,6 @@ export default function CreateEventPage() {
               onChange={handleStartDateChange}
               minDate={getTodayLocal()}
             />
-
             <EventDateField
               label="Event End Date"
               value={endTime}
@@ -1466,32 +1236,26 @@ export default function CreateEventPage() {
               }
             />
           </div>
-
           {/* ----------------------------------------
               Row 5: Start Time / End Time
           ---------------------------------------- */}
-
           <div className={styles.twoColumns}>
             <EventTimeField
               label="Event Start Time"
               value={startTime}
               onChange={setStartTime}
             />
-
             <EventTimeField
               label="Event End Time"
               value={endTime}
               onChange={setEndTime}
             />
           </div>
-
           {/* ----------------------------------------
               Row 6: Location / Featured Post
           ---------------------------------------- */}
-
           <div className={styles.twoColumns}>
             {/* Event Location */}
-
             <div className={styles.field}>
               <label
                 htmlFor="eventLocation"
@@ -1499,26 +1263,30 @@ export default function CreateEventPage() {
               >
                 Event Location
               </label>
-
               <AddressAutocomplete
                 value={location}
                 onChange={setLocation}
                 disabled={saving}
               />
             </div>
-
             {/* Featured Post */}
-
             <div className={styles.field}>
               <span className={styles.label}>
                 Featured Post?
               </span>
-
               <div className={styles.featureRow}>
-                <p className={styles.helpText}>
-                  Mark this event as featured.
-                </p>
-
+                <div>
+                  <p className={styles.helpText}>Mark this event as featured.</p>
+                  {eventUsage && (
+                    <p className={styles.helpText}>
+                      {eventUsage.featuredUsed} / {eventUsage.featuredLimit} featured posts used
+                    </p>
+                  )}
+                  <p className={styles.helpText}>{featuredMessage}</p>
+                  {usageError && !eventUsage && (
+                    <p className={styles.helpText}>{usageError}</p>
+                  )}
+                </div>
                 <label className={styles.switchWrap}>
                   <input
                     id="featured"
@@ -1526,14 +1294,13 @@ export default function CreateEventPage() {
                     role="switch"
                     aria-label="Featured Post"
                     checked={isFeatured}
-                    disabled={saving}
+                    disabled={saving || (!canFeature && !isFeatured)}
                     onChange={(event) =>
                       setIsFeatured(
                         event.target.checked
                       )
                     }
                   />
-
                   <span
                     className={styles.switchSlider}
                     aria-hidden="true"
@@ -1542,11 +1309,9 @@ export default function CreateEventPage() {
               </div>
             </div>
           </div>
-
           {/* ----------------------------------------
               Row 7: Event Photo Upload
           ---------------------------------------- */}
-
           <div className={styles.field}>
             <label
               htmlFor="eventPhoto"
@@ -1554,26 +1319,21 @@ export default function CreateEventPage() {
             >
               Event Photo
             </label>
-
             <div className={styles.uploadBox}>
               {displayedPhotoURL ? (
                 <>
                   {/* Image Preview */}
-
                   <img
                     src={displayedPhotoURL}
                     alt="Event photo preview"
                     className={styles.photoPreview}
                   />
-
                   {/* Image Details */}
-
                   <div className={styles.photoDetails}>
                     <strong>
                       {photo?.name ??
                         "Current event photo"}
                     </strong>
-
                     {photo && (
                       <p className={styles.helpText}>
                         {(
@@ -1584,12 +1344,9 @@ export default function CreateEventPage() {
                       </p>
                     )}
                   </div>
-
                   {/* Change / Crop / Remove */}
-
                   <div className={styles.photoActions}>
                     {/* Change Photo */}
-
                     <label
                       htmlFor="eventPhoto"
                       className={styles.changePhotoButton}
@@ -1597,9 +1354,7 @@ export default function CreateEventPage() {
                     >
                       Change Photo
                     </label>
-
                     {/* Crop Photo */}
-
                     <button
                       type="button"
                       className={styles.cropPhotoButton}
@@ -1610,9 +1365,7 @@ export default function CreateEventPage() {
                     >
                       Crop
                     </button>
-
                     {/* Remove Photo */}
-
                     <button
                       type="button"
                       className={styles.removePhotoButton}
@@ -1626,20 +1379,16 @@ export default function CreateEventPage() {
               ) : (
                 <>
                   {/* Empty Upload State */}
-
                   <div className={styles.uploadIcon}>
                     +
                   </div>
-
                   <strong>
                     Upload an Event Photo
                   </strong>
-
                   <p className={styles.helpText}>
                     JPG, PNG, or WebP. Maximum file
                     size: 5 MB.
                   </p>
-
                   <label
                     htmlFor="eventPhoto"
                     className={styles.changePhotoButton}
@@ -1649,9 +1398,7 @@ export default function CreateEventPage() {
                   </label>
                 </>
               )}
-
               {/* Hidden File Input */}
-
               <input
                 ref={photoInputRef}
                 id="eventPhoto"
@@ -1667,11 +1414,9 @@ export default function CreateEventPage() {
               />
             </div>
           </div>
-
           {/* ----------------------------------------
               Error Message
           ---------------------------------------- */}
-
           {error && (
             <p
               role="alert"
@@ -1680,14 +1425,11 @@ export default function CreateEventPage() {
               {error}
             </p>
           )}
-
           {/* ----------------------------------------
               Action Buttons
           ---------------------------------------- */}
-
           <div className={styles.actions}>
             {/* Cancel / Back */}
-
             <Link
               href={eventDetailsHref}
               className={styles.ghostButton}
@@ -1700,10 +1442,8 @@ export default function CreateEventPage() {
             >
               Cancel
             </Link>
-
             {isEditMode ? (
               /* Save Existing Draft */
-
               <button
                 type="button"
                 className={styles.primaryButton}
@@ -1719,7 +1459,6 @@ export default function CreateEventPage() {
             ) : (
               <>
                 {/* Save New Draft */}
-
                 <button
                   type="button"
                   className={styles.secondaryAction}
@@ -1732,9 +1471,7 @@ export default function CreateEventPage() {
                     ? "Saving..."
                     : "Save as Draft"}
                 </button>
-
                 {/* Publish New Event */}
-
                 <button
                   type="button"
                   className={styles.primaryButton}
@@ -1752,11 +1489,9 @@ export default function CreateEventPage() {
           </div>
         </div>
       </div>
-
       {/* ----------------------------------------
           Image Cropping Modal
       ---------------------------------------- */}
-
       {photoToCrop && (
         <ImageCropper
           file={photoToCrop}
