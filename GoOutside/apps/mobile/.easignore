@@ -1,0 +1,8 @@
+# Gradle caches and generated files
+**/.gradle/
+**/.cxx/
+**/build/
+
+# Local development files
+**/.DS_Store
+**/*.log

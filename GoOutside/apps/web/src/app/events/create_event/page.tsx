@@ -564,9 +564,84 @@ export default function CreateEventPage() {
 
   const [signedIn, setSignedIn] = useState(false);
 
+  // --------------------------------------------------
+  // Event Usage State
+  // --------------------------------------------------
+
+  type MonthlyEventUsage = {
+    packageName: string;
+    used: number;
+    limit: number;
+  };
+
+  const [eventUsage, setEventUsage] =
+    useState<MonthlyEventUsage | null>(null);
+
+  const [usageError, setUsageError] = useState("");
+
+  const limitReached =
+    !isEditMode &&
+    eventUsage !== null &&
+    eventUsage.used >= eventUsage.limit;
+
   // Tracks whether a requested draft was loaded.
   const [editLoaded, setEditLoaded] =
     useState(false);
+
+  const loadEventUsage = useCallback(async (userID: string) => {
+    const client = eventClient();
+
+    // Retrieve the active subscription.
+    const { data: subscription, error: subscriptionError } =
+      await client
+        .from("UserPackage")
+        .select(`
+          packageID,
+          Package (
+            packageName,
+            eventMonthPostCount
+          )
+        `)
+        .eq("userID", userID)
+        .eq("active", true)
+        .single();
+
+    if (subscriptionError) throw subscriptionError;
+
+    const packageData = Array.isArray(subscription.Package)
+      ? subscription.Package[0]
+      : subscription.Package;
+
+    if (!packageData) {
+      throw new Error("Unable to find your active package.");
+    }
+
+    // Match the UTC calendar month used by the database trigger.
+    const now = new Date();
+
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+    );
+
+    const nextMonth = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+    );
+
+    const { count, error: countError } = await client
+      .from("Event")
+      .select("eventID", { count: "exact", head: true })
+      .eq("userID", userID)
+      .gte("createdDate", monthStart.toISOString())
+      .lt("createdDate", nextMonth.toISOString());
+
+    if (countError) throw countError;
+
+    setEventUsage({
+      packageName: packageData.packageName,
+      used: count ?? 0,
+      limit: packageData.eventMonthPostCount,
+    });
+  }, []);
 
   // --------------------------------------------------
   // Load User, Categories, and Existing Draft
@@ -590,11 +665,28 @@ export default function CreateEventPage() {
         throw authError;
       }
 
+      // Event usage is only relevant for new events, not editing existing drafts.
+      // --------------------------------------------------
+
       setSignedIn(!!user);
 
       if (!user) {
         setCategories([]);
+        setEventUsage(null);
         return;
+      }
+
+      setUsageError("");
+
+      try {
+        await loadEventUsage(user.id);
+      } catch (usageLoadError) {
+        setEventUsage(null);
+        setUsageError(
+          usageLoadError instanceof Error
+            ? usageLoadError.message
+            : "Unable to load your event allowance."
+        );
       }
 
       // --------------------------------------------------
@@ -702,7 +794,7 @@ export default function CreateEventPage() {
     } finally {
       setLoading(false);
     }
-  }, [editEventID]);
+  }, [editEventID, loadEventUsage]);
 
   // --------------------------------------------------
   // Initialize Form
@@ -1107,17 +1199,12 @@ export default function CreateEventPage() {
         {/* ----------------------------------------
             Page Header
         ---------------------------------------- */}
-
         <div className={styles.topRow}>
           <div>
-            <p className={styles.eyebrow}>
-              EVENT MANAGEMENT
-            </p>
+            <p className={styles.eyebrow}>EVENT MANAGEMENT</p>
 
             <h1 className={styles.title}>
-              {isEditMode
-                ? "Edit Event"
-                : "Create an Event"}
+              {isEditMode ? "Edit Event" : "Create an Event"}
             </h1>
 
             <p className={styles.subtitle}>
@@ -1127,15 +1214,67 @@ export default function CreateEventPage() {
             </p>
           </div>
 
-          <Link
-            href={eventDetailsHref}
-            className={styles.backLink}
-          >
-            {isEditMode
-              ? "Back to Event"
-              : "Back to My Events"}
+          <Link href={eventDetailsHref} className={styles.backLink}>
+            {isEditMode ? "Back to Event" : "Back to My Events"}
           </Link>
         </div>
+
+        {/* Allowance goes AFTER topRow */}
+        {!isEditMode && eventUsage && (
+          <div className={styles.allowanceCard}>
+            <div className={styles.allowanceHeader}>
+              <strong>Monthly Event Allowance</strong>
+              <span className={styles.packageBadge}>
+                {eventUsage.packageName}
+              </span>
+            </div>
+
+            <div className={styles.allowanceStats}>
+              <span>
+                <strong>{eventUsage.used} / {eventUsage.limit}</strong>
+                {" "}events used
+              </span>
+
+              <span>
+                Resets{" "}
+                {new Date(
+                  Date.UTC(
+                    new Date().getUTCFullYear(),
+                    new Date().getUTCMonth() + 1,
+                    1
+                  )
+                ).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  timeZone: "UTC",
+                })}
+              </span>
+            </div>
+
+            <div className={styles.allowanceTrack}>
+              <div
+                className={styles.allowanceFill}
+                style={{
+                  width: `${
+                    eventUsage.limit > 0
+                      ? Math.min(
+                          100,
+                          (eventUsage.used / eventUsage.limit) * 100
+                        )
+                      : 100
+                  }%`,
+                }}
+              />
+            </div>
+
+            {limitReached && (
+              <p className={styles.allowanceWarning}>
+                You've reached your monthly limit. Upgrade your
+                package to create more events.
+              </p>
+            )}
+          </div>
+        )}  
 
         {/* ----------------------------------------
             Event Form Fields
