@@ -7,7 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient } from "../../lib/supabase/client";
 import AvatarUpload from "../../components/profile/AvatarUpload";
 import BannerUpload from "../../components/profile/BannerUpload";
-import LocationPicker, { type LocationOption } from "../../components/profile/LocationPicker";
+import LocationPicker, { type LocationOption } from "../../components/common/LocationPicker";
 
 const accentColors = [
   "#0D9488",

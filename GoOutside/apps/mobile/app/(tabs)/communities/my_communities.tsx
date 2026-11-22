@@ -1,15 +1,9 @@
-// ==================================================
-// MY COMMUNITIES SCREEN
-// ==================================================
-
-// React
 import React, {
   useCallback,
   useMemo,
   useState,
 } from "react";
 
-// React Native
 import {
   ActivityIndicator,
   Pressable,
@@ -21,649 +15,353 @@ import {
   View,
 } from "react-native";
 
-// Icons
-import { Feather } from "@expo/vector-icons";
-
-// Safe Area
-import { SafeAreaView } from "react-native-safe-area-context";
-
-// Navigation
 import {
   useFocusEffect,
   useRouter,
 } from "expo-router";
 
-// Supabase
-import { supabase } from "../../../src/lib/supabase";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-// Community Services
+// Components
+import CommunitiesNav from "../../../src/components/communities/CommunitiesNav";
+import CommunitySection from "../../../src/components/communities/CommunitySection";
+
+// Services
 import {
-  getJoinedCommunities,
-  getOwnedCommunities,
+  getCommunityUserID,
+  getMyCommunities,
 } from "../../../src/services/communities";
 
 // Types
 import type {
   CommunityRecord,
-} from "../../../src/services/communities";
-
-// Community Sections
-import CommunitySection from "../../../src/components/communities/CommunitySection";
-
-// Theme
-import { theme } from "../../../src/constants/theme";
+} from "../../../src/types/community";
 
 // ==================================================
-// MY COMMUNITIES
+// Component
 // ==================================================
 
 export default function MyCommunitiesScreen() {
   const router = useRouter();
 
-  // --------------------------------------------------
+  // ==================================================
   // State
-  // --------------------------------------------------
+  // ==================================================
 
-  const [ownedCommunities, setOwnedCommunities] =
+  const [owned, setOwned] =
     useState<CommunityRecord[]>([]);
 
-  const [joinedCommunities, setJoinedCommunities] =
+  const [joined, setJoined] =
     useState<CommunityRecord[]>([]);
 
-  const [signedIn, setSignedIn] =
-    useState(false);
+  const [search, setSearch] = useState("");
 
-  const [search, setSearch] =
-    useState("");
+  const [signedIn, setSignedIn] = useState(false);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+  // ==================================================
+  // Load
+  // ==================================================
 
-  const [error, setError] =
-    useState("");
+  const load = useCallback(async () => {
+    setError("");
 
-  // --------------------------------------------------
-  // Fetch My Communities
-  // --------------------------------------------------
+    try {
+      const userID = await getCommunityUserID();
 
-  const fetchMyCommunities = useCallback(
-    async (isRefresh = false) => {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+      setSignedIn(!!userID);
+
+      if (!userID) {
+        setOwned([]);
+        setJoined([]);
+        return;
       }
 
-      setError("");
+      const result = await getMyCommunities();
 
-      try {
-        // ----------------------------------------
-        // Get Authenticated User
-        // ----------------------------------------
-
-        const {
-          data: authData,
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError) {
-          if (
-            authError.name === "AuthSessionMissingError" ||
-            authError.status === 401
-          ) {
-            setSignedIn(false);
-            setOwnedCommunities([]);
-            setJoinedCommunities([]);
-            return;
-          }
-
-          throw authError;
-        }
-
-        const user = authData.user;
-
-        // ----------------------------------------
-        // No User
-        // ----------------------------------------
-
-        if (!user) {
-          setSignedIn(false);
-          setOwnedCommunities([]);
-          setJoinedCommunities([]);
-          return;
-        }
-
-        // ----------------------------------------
-        // Signed-In User
-        // ----------------------------------------
-
-        setSignedIn(true);
-
-        // Fetch communities owned and joined.
-        const [owned, joined] =
-          await Promise.all([
-            getOwnedCommunities(user.id),
-            getJoinedCommunities(user.id),
-          ]);
-
-        setOwnedCommunities(owned);
-        setJoinedCommunities(joined);
-      } catch (err) {
-        console.error(
-          "Error loading my communities:",
-          err
-        );
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load your communities."
-        );
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    []
-  );
-
-  // --------------------------------------------------
-  // Refresh When Screen Receives Focus
-  // --------------------------------------------------
+      setOwned(result.owned);
+      setJoined(result.joined);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load your communities."
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      void fetchMyCommunities();
-    }, [fetchMyCommunities])
+      setLoading(true);
+      void load();
+    }, [load])
   );
 
-  // --------------------------------------------------
-  // Search Filtering
-  // --------------------------------------------------
+  // ==================================================
+  // Search
+  // ==================================================
 
-  const query = search.trim().toLowerCase();
+  const matchesSearch = useCallback(
+    (community: CommunityRecord) => {
+      const query = search.trim().toLowerCase();
 
-  function matchesSearch(
-    community: CommunityRecord
-  ): boolean {
-    return (
-      !query ||
-      [
+      if (!query) {
+        return true;
+      }
+
+      return [
         community.communityTitle,
         community.communityDescription,
-        community.communityLocation,
+        community.locationName,
+        community.ownerName,
       ].some((value) =>
-        (value ?? "")
+        String(value ?? "")
           .toLowerCase()
           .includes(query)
-      )
-    );
-  }
-
-  // --------------------------------------------------
-  // Organize Community Sections
-  // --------------------------------------------------
-
-  const joined = useMemo(
-    () =>
-      joinedCommunities.filter(matchesSearch),
-    [joinedCommunities, query]
+      );
+    },
+    [search]
   );
 
-  // Published communities created by the user.
-  const owned = useMemo(
+  // ==================================================
+  // Group Communities
+  // ==================================================
+
+  const joinedCommunities = useMemo(
+    () => joined.filter(matchesSearch),
+    [joined, matchesSearch]
+  );
+
+  const ownedCommunities = useMemo(
     () =>
-      ownedCommunities.filter(
+      owned.filter(
         (community) =>
           community.status === "publicActive" &&
           matchesSearch(community)
       ),
-    [ownedCommunities, query]
+    [owned, matchesSearch]
   );
 
-  // Draft communities created by the user.
-  const drafted = useMemo(
+  const draftedCommunities = useMemo(
     () =>
-      ownedCommunities.filter(
+      owned.filter(
         (community) =>
           community.status === "drafted" &&
           matchesSearch(community)
       ),
-    [ownedCommunities, query]
+    [owned, matchesSearch]
   );
 
-  // --------------------------------------------------
-  // Empty State
-  // --------------------------------------------------
-
-  const hasNoCommunities =
-    ownedCommunities.length === 0 &&
-    joinedCommunities.length === 0;
-
-  const hasNoMatches =
-    joined.length === 0 &&
-    owned.length === 0 &&
-    drafted.length === 0;
+  const hasCommunities =
+    joinedCommunities.length > 0 ||
+    ownedCommunities.length > 0 ||
+    draftedCommunities.length > 0;
 
   // ==================================================
-  // RENDER
+  // Render
   // ==================================================
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={["top"]}
+    >
+      <CommunitiesNav active="my_communities" />
+
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={styles.scroll}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() =>
-              void fetchMyCommunities(true)
-            }
-            tintColor={theme.colors.primary}
+            onRefresh={() => {
+              setRefreshing(true);
+              void load();
+            }}
           />
         }
       >
-        {/* ----------------------------------------
-            Dashboard Navigation
-        ---------------------------------------- */}
-
-        <View style={styles.tabs}>
-          {/* All Communities - Inactive */}
-
-          <Pressable
-            style={styles.inactiveTab}
-            onPress={() =>
-              router.replace(
-                "/communities/all_communities"
-              )
-            }
-            accessibilityRole="button"
-            accessibilityLabel="All Communities"
-          >
-            <Text style={styles.inactiveTabText}>
-              All Communities
-            </Text>
-          </Pressable>
-
-          {/* My Communities - Active */}
-
-          <View style={styles.activeTab}>
-            <Text style={styles.activeTabText}>
-              My Communities
-            </Text>
-          </View>
-        </View>
-
-        {/* ----------------------------------------
-            Page Heading
-        ---------------------------------------- */}
-
         <Text style={styles.heading}>
           My Communities
         </Text>
 
-        {/* ----------------------------------------
-            Loading State
-        ---------------------------------------- */}
+        {/* Search */}
+
+        <View style={styles.actions}>
+          <TextInput
+            style={styles.search}
+            placeholder="Search your communities..."
+            placeholderTextColor="#8D97A6"
+            value={search}
+            onChangeText={setSearch}
+          />
+
+          <Pressable
+            style={styles.createButton}
+            onPress={() =>
+              router.push(
+                "/communities/create_community"
+              )
+            }
+          >
+            <Text style={styles.createText}>
+              + Create Community
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Content */}
 
         {loading ? (
-          <View style={styles.message}>
-            <ActivityIndicator
-              size="large"
-              color={theme.colors.primary}
-            />
-
-            <Text style={styles.messageText}>
-              Loading your communities...
-            </Text>
-          </View>
+          <ActivityIndicator
+            color="#46988E"
+            size="large"
+            style={styles.loading}
+          />
         ) : error ? (
-          /* ----------------------------------------
-              Error State
-          ---------------------------------------- */
-
-          <View style={styles.message}>
-            <Text style={styles.errorText}>
-              {error}
-            </Text>
-
-            <Pressable
-              onPress={() =>
-                void fetchMyCommunities()
-              }
-              accessibilityRole="button"
-            >
-              <Text style={styles.retryText}>
-                Retry
-              </Text>
-            </Pressable>
-          </View>
+          <Text style={styles.message}>
+            {error}
+          </Text>
         ) : !signedIn ? (
-          /* ----------------------------------------
-              Signed-Out State
-          ---------------------------------------- */
-
-          <View style={styles.signedOutContainer}>
-            <Text style={styles.signedOutTitle}>
-              Log in to see your communities.
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>
+              Sign in to view your communities
             </Text>
 
-            <Text style={styles.messageText}>
-              View communities you've joined,
-              created, and saved as drafts.
+            <Text style={styles.emptyDescription}>
+              Your joined and created communities
+              will appear here once you sign in.
+            </Text>
+          </View>
+        ) : !hasCommunities ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>
+              No communities found
             </Text>
 
-            <Pressable
-              style={styles.loginButton}
-              onPress={() =>
-                router.push(
-                  "/login_sign_up/login"
-                )
-              }
-              accessibilityRole="button"
-              accessibilityLabel="Log in"
-            >
-              <Text style={styles.buttonText}>
-                Log In
-              </Text>
-            </Pressable>
+            <Text style={styles.emptyDescription}>
+              {search
+                ? "Try adjusting your search."
+                : "You haven't joined or created any communities yet."}
+            </Text>
           </View>
         ) : (
-          /* ----------------------------------------
-              Signed-In Content
-          ---------------------------------------- */
-
           <>
-            {/* ----------------------------------------
-                Search and Create Community
-            ---------------------------------------- */}
+            <CommunitySection
+              title="Joined Communities"
+              communities={joinedCommunities}
+              from="my_communities"
+            />
 
-            <View style={styles.searchAndCreateRow}>
-              {/* Search Bar */}
+            <CommunitySection
+              title="Owned Communities"
+              communities={ownedCommunities}
+              from="my_communities"
+            />
 
-              <View style={styles.searchField}>
-                <Feather
-                  name="search"
-                  size={18}
-                  color="#66748C"
-                />
-
-                <TextInput
-                  style={styles.searchInput}
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder="Search your communities..."
-                  placeholderTextColor="#8996AA"
-                  accessibilityLabel="Search your communities"
-                />
-              </View>
-
-              {/* Create Community Button */}
-
-              <Pressable
-                style={styles.createCommunityButton}
-                onPress={() =>
-                  router.push(
-                    "/communities/create_community" as never
-                  )
-                }
-                accessibilityRole="button"
-                accessibilityLabel="Create a new community"
-              >
-                <Text style={styles.buttonText}>
-                  + Create Community
-                </Text>
-              </Pressable>
-            </View>
-
-            {/* ----------------------------------------
-                Empty State
-            ---------------------------------------- */}
-
-            {hasNoMatches ? (
-              <View style={styles.message}>
-                <Text style={styles.emptyTitle}>
-                  No communities found
-                </Text>
-
-                <Text style={styles.messageText}>
-                  {hasNoCommunities
-                    ? "You haven't joined or created any communities yet."
-                    : "Try another search."}
-                </Text>
-              </View>
-            ) : (
-              /* ----------------------------------------
-                  Community Sections
-              ---------------------------------------- */
-
-              <>
-                {/* Joined Communities */}
-
-                <CommunitySection
-                  title="Joined Communities"
-                  data={joined}
-                />
-
-                {/* Owned Communities */}
-
-                <CommunitySection
-                  title="Owned Communities"
-                  data={owned}
-                />
-
-                {/* Drafted Communities */}
-
-                <CommunitySection
-                  title="Drafted Communities"
-                  data={drafted}
-                />
-              </>
-            )}
+            <CommunitySection
+              title="Drafted Communities"
+              communities={draftedCommunities}
+              from="my_communities"
+            />
           </>
         )}
 
-        <View style={styles.bottom} />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 // ==================================================
-// STYLES
+// Styles
 // ==================================================
 
 const styles = StyleSheet.create({
-  // --------------------------------------------------
-  // Page
-  // --------------------------------------------------
-
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: "#F6F8F3",
   },
 
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 35,
+  scroll: {
+    flex: 1,
   },
-
-  // --------------------------------------------------
-  // Navigation Tabs
-  // --------------------------------------------------
-
-  tabs: {
-    height: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-
-  activeTab: {
-    height: "100%",
-    justifyContent: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "#31988F",
-    marginRight: 25,
-  },
-
-  activeTabText: {
-    color: "#31988F",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  inactiveTab: {
-    height: "100%",
-    justifyContent: "center",
-    marginRight: 25,
-  },
-
-  inactiveTabText: {
-    color: "#53617A",
-    fontSize: 14,
-  },
-
-  // --------------------------------------------------
-  // Page Heading
-  // --------------------------------------------------
 
   heading: {
-    marginTop: 28,
-    marginBottom: 16,
-    marginHorizontal: 24,
-    fontSize: 30,
+    marginHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 18,
+    color: "#18232B",
+    fontSize: 28,
     fontWeight: "800",
-    color: theme.colors.text,
   },
 
-  // --------------------------------------------------
-  // Search and Create Community
-  // --------------------------------------------------
-
-  searchAndCreateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 24,
-    marginBottom: 16,
-    gap: 10,
-  },
-
-  searchField: {
-    flex: 1,
-    minWidth: 0,
-    height: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    borderRadius: 9,
-    backgroundColor: "#F1F4F8",
-    borderWidth: 1,
-    borderColor: "#E1E6EA",
-  },
-
-  searchInput: {
-    flex: 1,
-    height: "100%",
-    marginLeft: 7,
-    fontSize: 14,
-    color: theme.colors.text,
-    padding: 0,
-  },
-
-  // --------------------------------------------------
-  // Create Community Button
-  // --------------------------------------------------
-
-  createCommunityButton: {
-    minHeight: 52,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.primary,
-    borderRadius: 9,
-  },
-
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  // --------------------------------------------------
-  // Messages
-  // --------------------------------------------------
-
-  message: {
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+  actions: {
+    marginHorizontal: 16,
     gap: 12,
   },
 
-  messageText: {
-    color: theme.colors.secondaryText,
-    fontSize: 13,
-    textAlign: "center",
-    lineHeight: 20,
+  search: {
+    height: 48,
+    paddingHorizontal: 15,
+    backgroundColor: "#F1F3F8",
+    borderWidth: 1,
+    borderColor: "#E2E8EF",
+    borderRadius: 10,
+    color: "#18232B",
+    fontSize: 14,
   },
 
-  errorText: {
-    color: theme.colors.error,
-    textAlign: "center",
-    fontSize: 13,
+  createButton: {
+    alignSelf: "flex-end",
+    backgroundColor: "#46988E",
+    borderRadius: 9,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
 
-  retryText: {
-    color: theme.colors.primary,
-    fontWeight: "700",
+  createText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  loading: {
+    marginTop: 45,
+  },
+
+  message: {
+    marginHorizontal: 24,
+    marginTop: 45,
+    textAlign: "center",
+    color: "#718079",
+    fontSize: 14,
+  },
+
+  emptyState: {
+    paddingHorizontal: 24,
+    paddingVertical: 55,
+    alignItems: "center",
+    gap: 12,
   },
 
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: theme.colors.text,
-  },
-
-  // --------------------------------------------------
-  // Signed-Out State
-  // --------------------------------------------------
-
-  signedOutContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 80,
-    gap: 18,
-  },
-
-  signedOutTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#53617A",
+    color: "#18232B",
+    fontSize: 20,
+    fontWeight: "800",
     textAlign: "center",
   },
 
-  loginButton: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-  },
-
-  // --------------------------------------------------
-  // Bottom Spacing
-  // --------------------------------------------------
-
-  bottom: {
-    height: 35,
+  emptyDescription: {
+    color: "#77839A",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 21,
   },
 });

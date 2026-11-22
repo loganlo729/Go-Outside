@@ -1,175 +1,154 @@
+// React Native
 import React from "react";
-
 import {
-  ScrollView,
+  FlatList,
+  Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
-import type {
-  CommunityRecord,
-} from "../../services/communities";
+// Navigation
+import { useRouter } from "expo-router";
 
-// --------------------------------------------------
+// Components
+import CommunityCard from "./CommunityCard";
+
+// Types
+import type {
+  CommunityOrigin,
+  CommunityRecord,
+} from "../../types/community";
+
+// ==================================================
 // Props
-// --------------------------------------------------
+// ==================================================
 
 type Props = {
   title: string;
-  data: CommunityRecord[];
+  communities: CommunityRecord[];
+  from?: CommunityOrigin;
+  viewAllCategoryID?: string;
 };
 
-// --------------------------------------------------
-// Community Section
-// --------------------------------------------------
+// ==================================================
+// Component
+// ==================================================
 
 export default function CommunitySection({
   title,
-  data,
+  communities,
+  from = "all_communities",
+  viewAllCategoryID,
 }: Props) {
-  // Don't render empty sections.
-  if (data.length === 0) {
+  const router = useRouter();
+
+  if (communities.length === 0) {
     return null;
+  }
+
+  function handleViewAll() {
+    if (!viewAllCategoryID) {
+      return;
+    }
+
+    router.push({
+      pathname: "/communities/category/[categoryID]",
+      params: {
+        categoryID: viewAllCategoryID,
+        from,
+      },
+    });
   }
 
   return (
     <View style={styles.section}>
-      {/* Section Title */}
+      {/* Section Header */}
 
       <View style={styles.header}>
         <Text style={styles.title}>
           {title}
         </Text>
+
+        {viewAllCategoryID && (
+          <Pressable
+            style={styles.viewAllButton}
+            onPress={handleViewAll}
+          >
+            <Text style={styles.viewAllText}>
+              View All →
+            </Text>
+          </Pressable>
+        )}
       </View>
 
-      {/* Community Placeholders */}
+      {/* Community Carousel */}
 
-      <ScrollView
+      <FlatList
+        data={communities}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.rail}
-      >
-        {data.map((community) => (
-          <View
-            key={community.communityID}
-            style={styles.card}
-          >
-            {/* Image Placeholder */}
-
-            <View style={styles.imagePlaceholder} />
-
-            {/* Community Information */}
-
-            <View style={styles.cardContent}>
-              <Text
-                style={styles.communityTitle}
-                numberOfLines={2}
-              >
-                {community.communityTitle}
-              </Text>
-
-              <Text
-                style={styles.location}
-                numberOfLines={1}
-              >
-                {community.communityLocation ||
-                  "Location TBD"}
-              </Text>
-
-              <View style={styles.accessBadge}>
-                <Text style={styles.accessText}>
-                  {community.accessType === "public"
-                    ? "Public"
-                    : community.allowJoinRequests &&
-                        community.allowInviteCodes
-                      ? "Request / Invite"
-                      : community.allowJoinRequests
-                        ? "Request Access"
-                        : "Invite Only"}
-                </Text>
-              </View>
-            </View>
-          </View>
-        ))}
-      </ScrollView>
+        keyExtractor={(item) => item.communityID}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }) => (
+          <CommunityCard
+            community={item}
+            from={from}
+          />
+        )}
+      />
     </View>
   );
 }
 
-// --------------------------------------------------
+// ==================================================
 // Styles
-// --------------------------------------------------
+// ==================================================
 
 const styles = StyleSheet.create({
   section: {
-    marginHorizontal: 16,
     marginTop: 22,
-    paddingVertical: 20,
-    borderWidth: 1.5,
-    borderColor: "#4B744B",
-    borderRadius: 18,
+    marginHorizontal: 16,
+    paddingVertical: 18,
     backgroundColor: "#C7DDC9",
+    borderWidth: 1,
+    borderColor: "#4B744B",
+    borderRadius: 16,
   },
 
   header: {
-    paddingHorizontal: 18,
-    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginBottom: 14,
+    gap: 12,
   },
 
   title: {
-    fontSize: 22,
+    flex: 1,
+    color: "#18232B",
+    fontSize: 20,
     fontWeight: "800",
-    color: "#18232B",
   },
 
-  rail: {
-    gap: 14,
-    paddingHorizontal: 18,
-    paddingBottom: 4,
-  },
-
-  card: {
-    width: 245,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    overflow: "hidden",
+  viewAllButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: "#E9F5EF",
     borderWidth: 1,
-    borderColor: "#DCE5DF",
+    borderColor: "#B4CFBA",
+    borderRadius: 9,
   },
 
-  imagePlaceholder: {
-    height: 135,
-    backgroundColor: "#E3EAE3",
-  },
-
-  cardContent: {
-    padding: 14,
-    gap: 9,
-  },
-
-  communityTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#18232B",
-  },
-
-  location: {
-    color: "#718079",
-    fontSize: 13,
-  },
-
-  accessBadge: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 7,
-    backgroundColor: "#E3F3EB",
-  },
-
-  accessText: {
-    color: "#3E8178",
-    fontWeight: "700",
+  viewAllText: {
+    color: "#3D857E",
     fontSize: 12,
+    fontWeight: "700",
+  },
+
+  list: {
+    paddingHorizontal: 16,
+    gap: 12,
   },
 });

@@ -127,8 +127,7 @@ export default function EventDetailsPage() {
   const [savingRSVP, setSavingRSVP] = useState(false);
   const [rsvpError, setRSVPError] = useState("");
 
-  // Prevent outdated RSVP requests from overwriting
-  // newer changes.
+  // Prevent outdated RSVP requests from overwriting newer changes.
   const rsvpVersion = useRef(0);
 
   // Prevent duplicate RSVP requests.
@@ -655,7 +654,6 @@ export default function EventDetailsPage() {
       }
 
       // Update status.
-      // Assumes the event table is named "Event".
 
       const { data, error: updateError } =
         await client
@@ -818,7 +816,6 @@ export default function EventDetailsPage() {
       // --------------------------------------------------
 
       // Only delete an event if it is still drafted.
-      // Assumes the event table is named "Event".
 
       const { data, error: deleteError } =
         await client

@@ -71,9 +71,10 @@ export default function AllCommunitiesPage() {
         [
           community.communityTitle,
           community.communityDescription,
-          community.communityLocation,
+          community.stateCode,
+          community.locationID,
         ].some((value) =>
-          (value ?? "")
+          String (value ?? "")
             .toLowerCase()
             .includes(query)
         );

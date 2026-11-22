@@ -1,20 +1,24 @@
+// React Native
 import React, { useState } from "react";
-
 import {
+  FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
+// Icons
+import { Ionicons } from "@expo/vector-icons";
+
+// Types
 import type {
   CommunityCategory,
-} from "../../services/communities";
+} from "../../types/community";
 
-// --------------------------------------------------
+// ==================================================
 // Props
-// --------------------------------------------------
+// ==================================================
 
 type Props = {
   categories: CommunityCategory[];
@@ -23,11 +27,11 @@ type Props = {
   onClearCategories: () => void;
 };
 
-// --------------------------------------------------
-// Community Filters
-// --------------------------------------------------
+// ==================================================
+// Component
+// ==================================================
 
-export default function CommunityFilters({
+export default function CommunityFilter({
   categories,
   selectedCategories,
   onToggleCategory,
@@ -37,89 +41,83 @@ export default function CommunityFilters({
 
   return (
     <View style={styles.container}>
-      {/* Category Dropdown */}
+      {/* Dropdown Button */}
 
       <Pressable
         style={styles.dropdownButton}
-        onPress={() => setExpanded((previous) => !previous)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
+        onPress={() => setExpanded(!expanded)}
       >
         <Text style={styles.dropdownText}>
           {selectedCategories.length === 0
             ? "All Categories"
-            : `${selectedCategories.length} ${
-                selectedCategories.length === 1
-                  ? "Category"
-                  : "Categories"
-              } Selected`}
+            : `${selectedCategories.length} Categories Selected`}
         </Text>
 
-        <Text style={styles.arrow}>
-          {expanded ? "▲" : "▼"}
-        </Text>
+        <Ionicons
+          name={
+            expanded
+              ? "chevron-up"
+              : "chevron-down"
+          }
+          size={18}
+          color="#1F2E22"
+        />
       </Pressable>
 
       {/* Category Options */}
 
       {expanded && (
-        <View style={styles.dropdownMenu}>
-          <View style={styles.dropdownHeader}>
-            <Text style={styles.dropdownTitle}>
+        <View style={styles.optionsContainer}>
+          <View style={styles.optionsHeader}>
+            <Text style={styles.headerText}>
               Select Categories
             </Text>
 
             <Pressable onPress={onClearCategories}>
               <Text style={styles.clearText}>
-                Clear All
+                Clear
               </Text>
             </Pressable>
           </View>
 
-          <ScrollView
-            style={styles.categoryList}
-            nestedScrollEnabled
-          >
-            {categories.map((category) => {
+          <FlatList
+            data={categories}
+            scrollEnabled={false}
+            keyExtractor={(item) => item.categoryID}
+            renderItem={({ item }) => {
               const selected =
                 selectedCategories.includes(
-                  category.categoryID
+                  item.categoryID
                 );
 
               return (
                 <Pressable
-                  key={category.categoryID}
-                  style={styles.categoryOption}
+                  style={styles.option}
                   onPress={() =>
-                    onToggleCategory(
-                      category.categoryID
-                    )
+                    onToggleCategory(item.categoryID)
                   }
-                  accessibilityRole="checkbox"
-                  accessibilityState={{
-                    checked: selected,
-                  }}
                 >
-                  <View
-                    style={[
-                      styles.checkbox,
-                      selected && styles.checkedBox,
-                    ]}
-                  >
-                    {selected && (
-                      <Text style={styles.checkmark}>
-                        ✓
-                      </Text>
-                    )}
-                  </View>
+                  <Ionicons
+                    name={
+                      selected
+                        ? "checkbox"
+                        : "square-outline"
+                    }
+                    size={21}
+                    color={
+                      selected
+                        ? "#31988F"
+                        : "#748379"
+                    }
+                  />
 
-                  <Text style={styles.categoryText}>
-                    {category.categoryName}
+                  <Text style={styles.optionText}>
+                    {item.categoryName}
                   </Text>
                 </Pressable>
               );
-            })}
-          </ScrollView>
+            }}
+          />
 
           <Pressable
             style={styles.doneButton}
@@ -135,117 +133,84 @@ export default function CommunityFilters({
   );
 }
 
-// --------------------------------------------------
+// ==================================================
 // Styles
-// --------------------------------------------------
+// ==================================================
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 24,
-    marginTop: 14,
-    marginBottom: 24,
+    marginHorizontal: 16,
+    marginTop: 12,
   },
 
   dropdownButton: {
-    minHeight: 52,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: "#D5DDD2",
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#CFD6CB",
+    borderRadius: 11,
+    padding: 14,
   },
 
   dropdownText: {
-    color: "#18232B",
-    fontSize: 15,
+    color: "#1F2E22",
+    fontSize: 14,
     fontWeight: "700",
   },
 
-  arrow: {
-    color: "#18232B",
-    fontSize: 13,
-  },
-
-  dropdownMenu: {
-    marginTop: 8,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#D8E1D8",
-    borderRadius: 12,
+  optionsContainer: {
     backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#D8DDD4",
+    borderRadius: 11,
+    marginTop: 6,
+    overflow: "hidden",
   },
 
-  dropdownHeader: {
+  optionsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
     padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#EDF0EA",
   },
 
-  dropdownTitle: {
-    color: "#18232B",
-    fontWeight: "700",
+  headerText: {
+    color: "#1F2E22",
     fontSize: 14,
+    fontWeight: "700",
   },
 
   clearText: {
     color: "#31988F",
-    fontWeight: "700",
     fontSize: 13,
+    fontWeight: "700",
   },
 
-  categoryList: {
-    maxHeight: 240,
-  },
-
-  categoryOption: {
+  option: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 12,
   },
 
-  checkbox: {
-    width: 19,
-    height: 19,
-    borderWidth: 1,
-    borderColor: "#9CAEA1",
-    borderRadius: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  checkedBox: {
-    backgroundColor: "#31988F",
-    borderColor: "#31988F",
-  },
-
-  checkmark: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  categoryText: {
-    color: "#18232B",
+  optionText: {
+    color: "#1F2E22",
     fontSize: 14,
   },
 
   doneButton: {
     backgroundColor: "#31988F",
-    padding: 13,
     alignItems: "center",
+    padding: 13,
   },
 
   doneText: {
     color: "#FFFFFF",
-    fontWeight: "700",
     fontSize: 14,
+    fontWeight: "800",
   },
 });

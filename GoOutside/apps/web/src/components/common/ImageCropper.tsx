@@ -1,4 +1,3 @@
-
 "use client";
 
 // React hooks
@@ -13,7 +12,7 @@ import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 
 // Component styles
-import styles from "./EventImageCropper.module.css";
+import styles from "./ImageCropper.module.css";
 
 // --------------------------------------------------
 // Props
@@ -97,10 +96,10 @@ async function cropImage(
 }
 
 // --------------------------------------------------
-// Event Image Cropper
+// Image Cropper
 // --------------------------------------------------
 
-export default function EventImageCropper({
+export default function ImageCropper({
   file,
   onApply,
   onCancel,
@@ -214,7 +213,7 @@ export default function EventImageCropper({
 
         <div className={styles.header}>
           <h2 id="crop-title">
-            Crop Event Photo
+            Crop Photo
           </h2>
 
           <button
@@ -257,12 +256,12 @@ export default function EventImageCropper({
         {/* Zoom Controls */}
 
         <div className={styles.zoomRow}>
-          <label htmlFor="eventPhotoZoom">
+          <label htmlFor="PhotoZoom">
             Zoom
           </label>
 
           <input
-            id="eventPhotoZoom"
+            id="PhotoZoom"
             type="range"
             min={1}
             max={3}

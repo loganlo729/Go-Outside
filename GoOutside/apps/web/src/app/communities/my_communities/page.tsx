@@ -107,7 +107,7 @@ export default function MyCommunitiesPage() {
       supabase
         .from("Community")
         .select("*")
-        .eq("creatorID", userID),
+        .eq("ownerID", userID),
 
       supabase
         .from("CommunityMember")
@@ -241,9 +241,10 @@ export default function MyCommunitiesPage() {
       return [
         community.communityTitle,
         community.communityDescription,
-        community.communityLocation,
+        community.stateCode,
+        community.locationID,
       ].some((value) =>
-        (value ?? "")
+        String(value ?? "")
           .toLowerCase()
           .includes(query)
       );

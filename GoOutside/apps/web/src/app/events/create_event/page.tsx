@@ -42,7 +42,7 @@ import styles from "./CreateEvent.module.css";
 import AddressAutocomplete from "../../../components/events/AddressAutocomplete";
 
 // Image cropper
-import EventImageCropper from "../../../components/events/EventImageCropper";
+import ImageCropper from "../../../components/common/ImageCropper";
 
 // --------------------------------------------------
 // Types
@@ -1619,7 +1619,7 @@ export default function CreateEventPage() {
       ---------------------------------------- */}
 
       {photoToCrop && (
-        <EventImageCropper
+        <ImageCropper
           file={photoToCrop}
           onApply={handleApplyCrop}
           onCancel={handleCancelCrop}

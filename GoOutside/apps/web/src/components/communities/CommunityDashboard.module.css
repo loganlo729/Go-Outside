@@ -578,233 +578,266 @@
   background: #fff1f0;
 }
 
-/* ==================================================
-   RESPONSIVE STYLES
-================================================== */
 
 /* --------------------------------------------------
-   Tablet
+  My Communities Empty State
 -------------------------------------------------- */
 
-@media (max-width: 900px) {
-  .page {
-    padding: 32px 24px 60px;
-  }
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 
-  .tabs {
-    gap: 26px;
-    padding: 0 24px;
-  }
+  width: 100%;
+  min-height: 250px;
 
-  .tab {
-    min-height: 75px;
-    font-size: 17px;
-  }
+  margin: 30px auto 0;
+  padding: 40px 20px;
 
-  .heading {
-    font-size: 36px;
-  }
+  box-sizing: border-box;
+  text-align: center;
+}
 
-  .search {
-    max-width: 100%;
-  }
+.emptyTitle {
+  margin: 0 0 16px;
 
-  .carouselContainer,
-  .communitySection {
-    padding: 22px;
-  }
+  color: #18232b;
+  font-size: 25px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.emptyDescription {
+  margin: 0;
+
+  color: #77839a;
+  font-size: 17px;
+  line-height: 1.6;
+  text-align: center;
 }
 
 /* --------------------------------------------------
-   Mobile
+  Community Card
 -------------------------------------------------- */
 
-@media (max-width: 600px) {
-  .page {
-    padding: 26px 16px 50px;
-  }
+.communityCardImage {
+  display: block;
+  width: 100%;
+  height: 160px;
 
-  .tabs {
-    gap: 22px;
-    padding: 0 16px;
-  }
+  object-fit: cover;
+  object-position: center;
 
-  .tab {
-    min-height: 64px;
-    padding: 0 2px;
-    font-size: 15px;
-    border-bottom-width: 3px;
-  }
+  background: #e3eae3;
+}
 
-  .header {
-    margin-bottom: 22px;
-  }
+/* --------------------------------------------------
+  Community Location
+-------------------------------------------------- */
 
-  .heading {
-    font-size: 30px;
-  }
+.placeholderContent .communityCardLocation {
+  margin: 0 0 10px;
 
-  .subtitle {
-    font-size: 14px;
-  }
+  color: #718079;
+  font-size: 14px;
+  line-height: 1.5;
+}
 
-  /* Search and Create Button */
+/* --------------------------------------------------
+   Community Owner
+-------------------------------------------------- */
 
-  .searchActions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 14px;
-    margin-bottom: 30px;
-  }
+.placeholderContent .communityCardOwner {
+  margin: 0 0 14px;
 
-  .searchActions .search {
-    flex: none;
-    width: 100%;
-  }
+  color: #718079;
+  font-size: 13px;
+}
 
-  .search {
-    width: 100%;
-    height: 56px;
-    padding: 0 16px;
-    font-size: 16px;
-  }
+.placeholderContent .communityCardOwner strong {
+  color: #263c2c;
+  font-weight: 700;
+}
 
-  .createButton {
-    width: 100%;
-    min-height: 50px;
-  }
+/* --------------------------------------------------
+  Community Card Footer
+-------------------------------------------------- */
 
-  /* Filters */
+.communityCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 
-  .filters {
-    margin-top: 14px;
-    margin-bottom: 32px;
-  }
+  margin-top: 14px;
+  padding-top: 12px;
 
-  .categoryDropdown,
-  .dropdownContainer {
-    max-width: 100%;
-  }
+  border-top: 1px solid #e3eae3;
+}
 
-  .dropdownButton {
-    min-height: 56px;
-    padding: 0 16px;
-    font-size: 15px;
-  }
+/* --------------------------------------------------
+  Community Access Badge
+-------------------------------------------------- */
 
-  /* Sections */
+.communityAccessBadge {
+  display: inline-flex;
+  align-items: center;
 
-  .sections {
-    gap: 24px;
-  }
+  padding: 7px 10px;
 
-  .section {
-    margin: 24px 0 30px;
-  }
+  background: #e3f3eb;
+  border-radius: 8px;
 
-  .carouselContainer,
-  .communitySection {
-    padding: 18px;
-    border-radius: 18px;
-  }
+  color: #3e8178;
+  font-size: 12px;
+  font-weight: 700;
+}
 
-  .sectionHeader {
-    gap: 10px;
-    margin-bottom: 16px;
-  }
+/* --------------------------------------------------
+  View Community Button
+-------------------------------------------------- */
 
-  .sectionTitle {
-    font-size: 21px;
-  }
+.communityViewButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-  .viewAllLink {
-    min-height: 38px;
-    padding: 8px 12px;
-    font-size: 12px;
-  }
+  min-height: 36px;
+  padding: 8px 14px;
 
-  /* Community Rail */
+  background: #4c7a45;
+  border-radius: 8px;
 
-  .rail {
-    gap: 14px;
-  }
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
 
-  .communityPlaceholder {
-    flex-basis: 245px;
-    width: 245px;
-  }
+  transition: background-color 0.2s ease;
+}
 
-  .placeholderImage {
-    height: 135px;
-  }
+.communityViewButton:hover {
+  background: #3f6d3f;
+}
 
-  .placeholderContent {
-    padding: 14px;
-  }
+/* --------------------------------------------------
+  Image Placeholder
+-------------------------------------------------- */
 
-  .placeholderContent h3 {
-    font-size: 16px;
-  }
+.placeholderImage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  .sectionPlaceholder {
-    min-height: 110px;
-    padding: 16px;
-  }
+  height: 160px;
 
-  /* --------------------------------------------------
-    My Communities Empty State
-  -------------------------------------------------- */
+  background: #e3eae3;
+}
 
-  .emptyState {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+.placeholderImage span {
+  color: #4c7a45;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
 
-    width: 100%;
-    min-height: 250px;
+/* --------------------------------------------------
+   Community Membership Buttons
+-------------------------------------------------- */
 
-    margin: 30px auto 0;
-    padding: 40px 20px;
+.communityJoinButton,
+.communityLeaveButton,
+.communityPendingButton {
+  position: relative;
+  z-index: 2;
 
-    box-sizing: border-box;
-    text-align: center;
-  }
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-  .emptyTitle {
-    margin: 0 0 16px;
+  min-height: 36px;
+  padding: 8px 14px;
 
-    color: #18232b;
-    font-size: 25px;
-    font-weight: 800;
-    text-align: center;
-  }
+  border: 1px solid #4c7a45;
+  border-radius: 8px;
 
-  .emptyDescription {
-    margin: 0;
+  font-size: 13px;
+  font-weight: 700;
 
-    color: #77839a;
-    font-size: 17px;
-    line-height: 1.6;
-    text-align: center;
-  }
+  cursor: pointer;
+}
 
-  /* --------------------------------------------------
-    Mobile
-  -------------------------------------------------- */
+/* --------------------------------------------------
+   Join Button
+-------------------------------------------------- */
 
-  @media (max-width: 600px) {
-    .emptyState {
-      min-height: 190px;
-      padding: 30px 16px;
-    }
+.communityJoinButton {
+  background: #4c7a45;
+  color: #ffffff;
+}
 
-    .emptyTitle {
-      font-size: 21px;
-    }
+.communityJoinButton:hover:not(:disabled) {
+  background: #3f6d3f;
+}
 
-    .emptyDescription {
-      font-size: 14px;
-    }
-  }
+/* --------------------------------------------------
+   Leave Button
+-------------------------------------------------- */
+
+.communityLeaveButton {
+  background: #ffffff;
+  border-color: #b42318;
+  color: #b42318;
+}
+
+.communityLeaveButton:hover:not(:disabled) {
+  background: #fff0ee;
+}
+
+/* --------------------------------------------------
+   Pending Button
+-------------------------------------------------- */
+
+.communityPendingButton {
+  background: #e3eae3;
+  border-color: #e3eae3;
+  color: #63715f;
+
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------
+   Disabled Buttons
+-------------------------------------------------- */
+
+.communityJoinButton:disabled,
+.communityLeaveButton:disabled,
+.communityPendingButton:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------
+   Clickable Community Card
+-------------------------------------------------- */
+
+.communityPlaceholder {
+  position: relative;
+}
+
+.communityCardOpenLink {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+
+  display: block;
+
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+.communityCardOpenLink:focus-visible {
+  outline: 3px solid #4c7a45;
+  outline-offset: 3px;
 }

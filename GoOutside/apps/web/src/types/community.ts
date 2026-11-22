@@ -8,14 +8,16 @@ export type CommunityAccessType =
 
 export type CommunityRecord = {
   communityID: string;
-  creatorID: string;
+  ownerID: string;
   categoryID: string | null;
   conversationID: string | null;
 
   communityTitle: string;
   communityDescription: string | null;
-  communityImage: string | null;
-  communityLocation: string | null;
+  communityImageURL: string | null;
+
+  stateCode: string;
+  locationID: number | null;
 
   status: CommunityStatus;
   accessType: CommunityAccessType;

@@ -1,0 +1,901 @@
+/* ==================================================
+   CREATE COMMUNITY
+================================================== */
+
+/* --------------------------------------------------
+   Page Layout
+-------------------------------------------------- */
+
+.page {
+  display: flex;
+  justify-content: center;
+
+  width: 100%;
+  min-height: 100vh;
+
+  padding: 24px 20px 60px;
+
+  background: #f6f7f3;
+
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------
+   Main Card
+-------------------------------------------------- */
+
+.card {
+  width: 100%;
+  max-width: 920px;
+  min-width: 0;
+  height: fit-content;
+
+  padding: 30px 38px;
+
+  background: #ffffff;
+  border: 1px solid #d8ddd4;
+  border-radius: 24px;
+
+  box-shadow: 0 8px 30px rgba(20, 32, 24, 0.04);
+
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------
+   Page Header
+-------------------------------------------------- */
+
+.topRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.headerContent {
+  flex: 1;
+  min-width: 0;
+}
+
+/* --------------------------------------------------
+   Eyebrow
+-------------------------------------------------- */
+
+.eyebrow {
+  margin: 0 0 8px;
+
+  color: #5d7c57;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* --------------------------------------------------
+   Page Title
+-------------------------------------------------- */
+
+.title {
+  margin: 0 0 8px;
+
+  color: #1f2e22;
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+/* --------------------------------------------------
+   Page Subtitle
+-------------------------------------------------- */
+
+.subtitle {
+  max-width: 720px;
+  margin: 0;
+
+  color: #63715f;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------
+   Back Link
+-------------------------------------------------- */
+
+.backLink {
+  flex-shrink: 0;
+
+  margin-top: 8px;
+
+  color: #3f6d3f;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+/* ==================================================
+   FORM
+================================================== */
+
+/* --------------------------------------------------
+   Form Layout
+-------------------------------------------------- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+
+  gap: 20px;
+}
+
+/* --------------------------------------------------
+   Two Column Layout
+-------------------------------------------------- */
+
+.twoColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  align-items: start;
+
+  gap: 20px;
+}
+
+.twoColumns > * {
+  min-width: 0;
+}
+
+/* --------------------------------------------------
+   Form Field
+-------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+  min-width: 0;
+}
+
+/* --------------------------------------------------
+   Field Label
+-------------------------------------------------- */
+
+.label {
+  display: block;
+
+  color: #1f2e22;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* --------------------------------------------------
+   Inputs
+-------------------------------------------------- */
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+
+  padding: 10px 12px;
+
+  background: #fcfdfb;
+  border: 1px solid #d8ddd4;
+  border-radius: 8px;
+
+  color: #1f2e22;
+  font-family: inherit;
+  font-size: 13px;
+
+  outline: none;
+  box-sizing: border-box;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* --------------------------------------------------
+   Input Focus
+-------------------------------------------------- */
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: #4c7a45;
+
+  box-shadow: 0 0 0 3px rgba(76, 122, 69, 0.12);
+}
+
+/* --------------------------------------------------
+   Input Placeholders
+-------------------------------------------------- */
+
+.input::placeholder,
+.textarea::placeholder {
+  color: #9aa69a;
+}
+
+/* --------------------------------------------------
+   Select
+-------------------------------------------------- */
+
+.select {
+  cursor: pointer;
+}
+
+.select:disabled {
+  background: #f1f4ef;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------
+   Textarea
+-------------------------------------------------- */
+
+.textarea {
+  min-height: 105px;
+
+  resize: vertical;
+
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------
+   Field Footer
+-------------------------------------------------- */
+
+.fieldFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  color: #748071;
+  font-size: 11px;
+}
+
+/* --------------------------------------------------
+   Help Text
+-------------------------------------------------- */
+
+.helpText {
+  margin: 0;
+
+  color: #748071;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* ==================================================
+   FORM SECTIONS
+================================================== */
+
+/* --------------------------------------------------
+   Section Container
+-------------------------------------------------- */
+
+.section {
+  display: flex;
+  flex-direction: column;
+
+  gap: 14px;
+  padding-top: 20px;
+
+  border-top: 1px solid #e6ebe3;
+}
+
+/* --------------------------------------------------
+   Section Header
+-------------------------------------------------- */
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+/* --------------------------------------------------
+   Section Title
+-------------------------------------------------- */
+
+.sectionTitle {
+  margin: 0;
+
+  color: #1f2e22;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+/* --------------------------------------------------
+   Section Description
+-------------------------------------------------- */
+
+.sectionDescription {
+  margin: 0;
+
+  color: #63715f;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ==================================================
+   COMMUNITY LOCATION
+================================================== */
+
+/* --------------------------------------------------
+   Location Container
+-------------------------------------------------- */
+
+.locationContainer {
+  width: 100%;
+  min-width: 0;
+
+  padding: 16px;
+
+  background: #f9fbf8;
+  border: 1px solid #e3e9df;
+  border-radius: 10px;
+
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------
+   Location Picker Layout
+-------------------------------------------------- */
+
+.locationContainer > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  align-items: start;
+
+  gap: 16px;
+}
+
+.locationContainer > div > div {
+  min-width: 0;
+}
+
+/* ==================================================
+   COMMUNITY IMAGE
+================================================== */
+
+/* --------------------------------------------------
+   Upload Container
+-------------------------------------------------- */
+
+.uploadBox {
+  width: 100%;
+  overflow: hidden;
+
+  background: #f9fbf8;
+  border: 2px dashed #cbd8c7;
+  border-radius: 14px;
+
+  box-sizing: border-box;
+
+  transition: border-color 0.2s ease;
+}
+
+.uploadBox:hover {
+  border-color: #4c7a45;
+}
+
+/* --------------------------------------------------
+   Upload Label
+-------------------------------------------------- */
+
+.uploadLabel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 220px;
+
+  gap: 12px;
+  padding: 30px;
+
+  color: #63715f;
+  font-size: 13px;
+  text-align: center;
+
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.uploadLabel strong {
+  color: #2f6136;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.uploadLabel small {
+  color: #8a9786;
+  font-size: 12px;
+}
+
+/* --------------------------------------------------
+   Upload Icon
+-------------------------------------------------- */
+
+.uploadIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 52px;
+  height: 52px;
+
+  background: #e3efe1;
+  border-radius: 50%;
+
+  color: #4c7a45;
+  font-size: 32px;
+  font-weight: 400;
+}
+
+/* --------------------------------------------------
+   Hidden File Input
+-------------------------------------------------- */
+
+.hiddenInput {
+  display: none;
+}
+
+/* --------------------------------------------------
+   Image Preview
+-------------------------------------------------- */
+
+.imagePreview {
+  width: 100%;
+}
+
+/* --------------------------------------------------
+   Preview Image
+-------------------------------------------------- */
+
+.previewImage {
+  display: block;
+
+  width: 100%;
+  aspect-ratio: 16 / 9;
+
+  object-fit: cover;
+  object-position: center;
+}
+
+/* --------------------------------------------------
+   Image Actions
+-------------------------------------------------- */
+
+.imageActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+  padding: 16px;
+
+  background: #f9fbf8;
+}
+
+/* --------------------------------------------------
+   Image Buttons
+-------------------------------------------------- */
+
+.changeImageButton,
+.removeImageButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 10px 16px;
+
+  border-radius: 8px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* --------------------------------------------------
+   Change Image
+-------------------------------------------------- */
+
+.changeImageButton {
+  background: #4c7a45;
+  border: 1px solid #4c7a45;
+
+  color: #ffffff;
+}
+
+.changeImageButton:hover {
+  background: #3f6d3f;
+}
+
+/* --------------------------------------------------
+   Remove Image
+-------------------------------------------------- */
+
+.removeImageButton {
+  background: #ffffff;
+  border: 1px solid #d8ddd4;
+
+  color: #a33b32;
+}
+
+.removeImageButton:hover {
+  background: #fff3f1;
+}
+
+.removeImageButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ==================================================
+   COMMUNITY VISIBILITY
+================================================== */
+
+/* --------------------------------------------------
+   Visibility Options
+-------------------------------------------------- */
+
+.visibilityOptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  align-items: stretch;
+
+  gap: 16px;
+}
+
+/* --------------------------------------------------
+   Visibility Option Card
+-------------------------------------------------- */
+
+.optionCard {
+  display: flex;
+  align-items: flex-start;
+
+  gap: 14px;
+  padding: 20px;
+
+  background: #ffffff;
+  border: 2px solid #dce5d8;
+  border-radius: 12px;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.optionCard:hover {
+  border-color: #8eac86;
+}
+
+/* --------------------------------------------------
+   Selected Visibility
+-------------------------------------------------- */
+
+.optionCardSelected {
+  background: #f2f8ef;
+  border-color: #4c7a45;
+}
+
+/* --------------------------------------------------
+   Visibility Radio
+-------------------------------------------------- */
+
+.optionCard input {
+  flex-shrink: 0;
+
+  width: 18px;
+  height: 18px;
+
+  margin-top: 2px;
+
+  accent-color: #4c7a45;
+  cursor: pointer;
+}
+
+/* --------------------------------------------------
+   Visibility Title
+-------------------------------------------------- */
+
+.optionCard strong {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #1f2e22;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+/* --------------------------------------------------
+   Visibility Description
+-------------------------------------------------- */
+
+.optionCard p {
+  margin: 0;
+
+  color: #63715f;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ==================================================
+   PRIVATE COMMUNITY SETTINGS
+================================================== */
+
+/* --------------------------------------------------
+   Private Settings Container
+-------------------------------------------------- */
+
+.privateSettings {
+  display: flex;
+  flex-direction: column;
+
+  gap: 16px;
+  margin-top: 8px;
+  padding: 24px;
+
+  background: #f9fbf8;
+  border: 1px solid #dce5d8;
+  border-radius: 12px;
+}
+
+/* --------------------------------------------------
+   Private Settings Title
+-------------------------------------------------- */
+
+.privateSettings h3 {
+  margin: 0;
+
+  color: #1f2e22;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* --------------------------------------------------
+   Private Access Options
+-------------------------------------------------- */
+
+.privateOptions {
+  display: flex;
+  flex-direction: column;
+
+  gap: 14px;
+}
+
+/* --------------------------------------------------
+   Private Access Option
+-------------------------------------------------- */
+
+.radioOption {
+  display: flex;
+  align-items: flex-start;
+
+  gap: 12px;
+  padding: 16px;
+
+  background: #ffffff;
+  border: 1px solid #dce5d8;
+  border-radius: 10px;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+/* --------------------------------------------------
+   Selected Private Option
+-------------------------------------------------- */
+
+.radioOption:has(input:checked) {
+  background: #f2f8ef;
+  border-color: #4c7a45;
+}
+
+/* --------------------------------------------------
+   Private Option Radio
+-------------------------------------------------- */
+
+.radioOption input {
+  flex-shrink: 0;
+
+  width: 17px;
+  height: 17px;
+
+  margin-top: 2px;
+
+  accent-color: #4c7a45;
+  cursor: pointer;
+}
+
+/* --------------------------------------------------
+   Private Option Title
+-------------------------------------------------- */
+
+.radioOption strong {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #1f2e22;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+/* --------------------------------------------------
+   Private Option Description
+-------------------------------------------------- */
+
+.radioOption p {
+  margin: 0;
+
+  color: #63715f;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ==================================================
+   ERROR MESSAGE
+================================================== */
+
+.error {
+  padding: 16px 18px;
+
+  background: #fff3f1;
+  border: 1px solid #f5c6c0;
+  border-radius: 10px;
+
+  color: #b42318;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ==================================================
+   FORM ACTIONS
+================================================== */
+
+/* --------------------------------------------------
+   Action Container
+-------------------------------------------------- */
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 12px;
+  padding-top: 20px;
+
+  border-top: 1px solid #e6ebe3;
+}
+
+/* --------------------------------------------------
+   Shared Button Styling
+-------------------------------------------------- */
+
+.cancelButton,
+.draftButton,
+.submitButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 46px;
+  padding: 12px 22px;
+
+  border-radius: 12px;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+
+  box-sizing: border-box;
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* --------------------------------------------------
+   Cancel Button
+-------------------------------------------------- */
+
+.cancelButton {
+  background: #ffffff;
+  border: 1px solid #cfd6cb;
+
+  color: #425246;
+}
+
+.cancelButton:hover {
+  background: #f6f8f3;
+}
+
+/* --------------------------------------------------
+   Save as Draft Button
+-------------------------------------------------- */
+
+.draftButton {
+  background: #e3e9df;
+  border: 1px solid #e3e9df;
+
+  color: #315b35;
+}
+
+.draftButton:hover:not(:disabled) {
+  background: #d5e0d0;
+}
+
+/* --------------------------------------------------
+   Publish Community Button
+-------------------------------------------------- */
+
+.submitButton {
+  background: #456d3f;
+  border: 1px solid #456d3f;
+
+  color: #ffffff;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: #365b32;
+}
+
+/* --------------------------------------------------
+   Disabled Buttons
+-------------------------------------------------- */
+
+.draftButton:disabled,
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------
+   Button Focus
+-------------------------------------------------- */
+
+.cancelButton:focus-visible,
+.draftButton:focus-visible,
+.submitButton:focus-visible {
+  outline: 2px solid #4c7a45;
+  outline-offset: 3px;
+}
+
+/* --------------------------------------------------
+   Required *
+-------------------------------------------------- */
+.required {
+  color: #dc2626;
+  font-weight: 600;
+}

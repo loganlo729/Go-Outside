@@ -23,7 +23,7 @@ import SettingsCard from "../../../src/components/profile/SettingsCard";
 import { supabase } from "../../../src/lib/supabase";
 import ProfileBanner from "../../../src/components/profile/ProfileBanner";
 
-import LocationPicker from "../../../src/components/profile/LocationPicker";
+import LocationPicker from "../../../src/components/common/LocationPicker";
 
 const ACCENTS = [
   "#0D9488",
