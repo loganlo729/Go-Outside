@@ -680,7 +680,7 @@ export default function CreateEventPage() {
 
     if (limitReached && eventUsage) {
       setError(
-        `Unable to ${action === "publicActive" ? "publish" : "create"} event. ` +
+        `Unable to ${action === "publicActive" ? "publish" : "draft"} event. ` +
         `You have reached your monthly limit of ${eventUsage.limit} events. ` +
         `Upgrade your package or wait until next month.`
       );
