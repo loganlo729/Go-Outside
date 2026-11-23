@@ -85,14 +85,25 @@ export default function MyCommunitiesScreen() {
       setOwned(result.owned);
       setJoined(result.joined);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load your communities."
-      );
+      const message =
+        err instanceof Error ? err.message : "";
+
+      if (
+        message.toLowerCase().includes("auth session missing") ||
+        message.toLowerCase().includes("session missing")
+      ) {
+        setSignedIn(false);
+        setOwned([]);
+        setJoined([]);
+        setError("");
+      } else {
+        setError(
+          message || "Unable to load your communities."
+        );
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+        setLoading(false);
+        setRefreshing(false);
     }
   }, []);
 
@@ -202,18 +213,14 @@ export default function MyCommunitiesScreen() {
             onChangeText={setSearch}
           />
 
-          <Pressable
-            style={styles.createButton}
-            onPress={() =>
-              router.push(
-                "/communities/create_community"
-              )
-            }
-          >
-            <Text style={styles.createText}>
-              + Create Community
-            </Text>
-          </Pressable>
+          {signedIn && (
+            <Pressable
+              style={styles.createButton}
+              onPress={() => router.push("/communities/create_community")}
+            >
+              <Text style={styles.createText}>+ Create Community</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* Content */}
@@ -229,16 +236,24 @@ export default function MyCommunitiesScreen() {
             {error}
           </Text>
         ) : !signedIn ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>
-              Sign in to view your communities
-            </Text>
+        <View style={styles.loginPrompt}>
+          <Text style={styles.loginTitle}>
+            Log in to see your communities
+          </Text>
 
-            <Text style={styles.emptyDescription}>
-              Your joined and created communities
-              will appear here once you sign in.
+          <Text style={styles.loginDescription}>
+            View communities you've joined, created, and saved as drafts.
+          </Text>
+
+          <Pressable
+            style={styles.loginButton}
+            onPress={() => router.push("/login_sign_up/login")}
+          >
+            <Text style={styles.loginButtonText}>
+              Log In
             </Text>
-          </View>
+          </Pressable>
+        </View>
         ) : !hasCommunities ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>
@@ -363,5 +378,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     lineHeight: 21,
+  },
+
+
+  // --------------------------------------------------
+  // Logged-Out Community Prompt
+  // --------------------------------------------------
+
+  loginPrompt: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 65,
+    gap: 14,
+  },
+
+  loginTitle: {
+    color: "#18232B",
+    fontSize: 23,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+
+  loginDescription: {
+    color: "#77839A",
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+
+  loginButton: {
+    marginTop: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 32,
+    backgroundColor: "#5B9D92",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  loginButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

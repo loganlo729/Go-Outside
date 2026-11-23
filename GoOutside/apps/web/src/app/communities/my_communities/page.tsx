@@ -29,6 +29,7 @@ import type {
 // Styles
 import styles from "../../../components/communities/CommunityDashboard.module.css";
 
+
 // ==================================================
 // MY COMMUNITIES PAGE
 // ==================================================
@@ -55,6 +56,25 @@ export default function MyCommunitiesPage() {
   );
 
   const [reloadKey, setReloadKey] = useState(0);
+
+  const [supabase] = useState(() => getSupabaseClient());
+  
+  const [userID, setUserID] = useState<string | null>(null);
+
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserID(data.user?.id ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUserID(session?.user?.id ?? null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // --------------------------------------------------
   // Load My Communities
@@ -344,12 +364,14 @@ export default function MyCommunitiesPage() {
 
         {/* Create Community */}
 
-        <Link
-          href="/communities/create_community"
-          className={styles.createButton}
-        >
-          + Create Community
-        </Link>
+        {userID && (
+          <Link
+            href="/communities/create_community"
+            className={styles.createButton}
+          >
+            Create Community
+          </Link>
+        )}
       </div>
 
       {/* ----------------------------------------
@@ -392,19 +414,18 @@ export default function MyCommunitiesPage() {
             Signed-Out State
         ---------------------------------------- */
 
-        <div className={styles.emptyState}>
-          <h2 className={styles.emptyTitle}>
+        <div className={styles.loginPrompt}>
+          <h2 className={styles.loginTitle}>
             Log in to see your communities
           </h2>
 
-          <p className={styles.emptyDescription}>
-            View communities you've joined,
-            created, and saved as drafts.
+          <p className={styles.loginDescription}>
+            View communities you've joined, created, and saved as drafts.
           </p>
 
           <Link
             href="/login"
-            className={styles.createButton}
+            className={styles.loginButton}
           >
             Log In
           </Link>
