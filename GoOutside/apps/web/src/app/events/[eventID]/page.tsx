@@ -690,10 +690,20 @@ export default function EventDetailsPage() {
 
       router.refresh();
     } catch (updateError) {
-      setManagementError(
-        updateError instanceof Error
+      console.error("Event status update failed:", updateError);
+
+      const message =
+        updateError &&
+        typeof updateError === "object" &&
+        "message" in updateError &&
+        typeof updateError.message === "string"
           ? updateError.message
-          : "Unable to update event status."
+          : "An unexpected error occurred.";
+
+      setManagementError(
+        nextStatus === "publicActive"
+          ? `Unable to publish event: ${message}`
+          : `Unable to cancel event: ${message}`
       );
     } finally {
       managingRef.current = false;
