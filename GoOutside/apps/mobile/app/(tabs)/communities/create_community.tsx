@@ -825,8 +825,7 @@ export default function CreateCommunityScreen() {
                   <Text
                     style={styles.optionDescription}
                   >
-                    Users need an invitation code
-                    to join.
+                    Users need an invitation code to join.
                   </Text>
                 </View>
               </Pressable>
