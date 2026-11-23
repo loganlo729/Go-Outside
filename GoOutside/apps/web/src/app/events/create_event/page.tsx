@@ -677,6 +677,16 @@ export default function CreateEventPage() {
       return;
     }
     setError("");
+
+    if (limitReached && eventUsage) {
+      setError(
+        `Unable to ${action === "publicActive" ? "publish" : "create"} event. ` +
+        `You have reached your monthly limit of ${eventUsage.limit} events. ` +
+        `Upgrade your package or wait until next month.`
+      );
+      return;
+    }
+
     if (isFeatured && !canFeature) {
       setError(featuredMessage);
       return;
@@ -902,14 +912,25 @@ export default function CreateEventPage() {
         router.refresh();
       }
     } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Unable to save the event."
-      );
-    } finally {
-      setSaving(false);
-    }
+        console.error("Event save failed:", saveError);
+
+        if (
+          saveError &&
+          typeof saveError === "object" &&
+          "message" in saveError &&
+          typeof saveError.message === "string"
+        ) {
+          setError(saveError.message);
+        } else {
+          setError(
+            action === "publicActive"
+              ? "Unable to publish event."
+              : "Unable to save event."
+          );
+        }
+      } finally {
+        setSaving(false);
+      }
   }
   // --------------------------------------------------
   // Loading State
