@@ -1153,9 +1153,6 @@ export default function CreateEventScreen() {
             ) : (
               <Text style={styles.allowanceWarning}>{usageError || "Unable to verify your allowance."}</Text>
             )}
-            <Pressable disabled={saving || usageLoading} onPress={() => void refreshEventUsage()}>
-              <Text style={styles.allowanceRetry}>Refresh allowance</Text>
-            </Pressable>
           </View>
         )}
 
